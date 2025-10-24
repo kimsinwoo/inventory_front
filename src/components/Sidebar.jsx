@@ -12,7 +12,7 @@ import {
   Home,
   FileText,
   FolderOpen,
-} from 'lucide-react';
+} from 'lucide-react'; 
 
 const Sidebar = ({ activeNav, setActiveNav }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
