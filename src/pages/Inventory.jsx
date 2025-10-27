@@ -50,7 +50,6 @@ const Inventory = () => {
       case 'dashboard':
         return (
           <>
-            <InventoryAlertsSummary />
             <WarehouseUtilization />
           </>
         );
