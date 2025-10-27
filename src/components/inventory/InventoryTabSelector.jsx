@@ -18,7 +18,7 @@ const InventoryTabSelector = ({ activeTab, onTabChange }) => {
           }`}
         >
           {tab.name}
-        </button>
+        </button> 
       ))}
     </div>
   );
