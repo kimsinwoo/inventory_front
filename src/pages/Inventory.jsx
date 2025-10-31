@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BarChart3 } from 'lucide-react';
 import InventoryTabSelector from '../components/inventory/InventoryTabSelector';
 import InventoryStatusFilter from '../components/inventory/InventoryStatusFilter';
@@ -6,8 +6,10 @@ import InventoryStatusSummary from '../components/inventory/InventoryStatusSumma
 import InventoryStatusList from '../components/inventory/InventoryStatusList';
 import InventoryMovementList from '../components/inventory/InventoryMovementList';
 import WarehouseUtilization from '../components/inventory/WarehouseUtilization';
+import WarehouseTransfer from '../components/inventory/WarehouseTransfer';
 import TemperatureInput from '../components/inventory/TemperatureInput';
 import TemperatureList from '../components/inventory/TemperatureList';
+import { factoryService } from '../services';
 
 const Inventory = () => {
   const [activeTab, setActiveTab] = useState('status');
@@ -17,6 +19,23 @@ const Inventory = () => {
     status: '전체',
     searchTerm: '',
   });
+  const [temperatureRefresh, setTemperatureRefresh] = useState(0);
+  const [factoryList, setFactoryList] = useState([]);
+  const [selectedFactoryId, setSelectedFactoryId] = useState('');
+
+  useEffect(() => {
+    const loadFactories = async () => {
+      try {
+        const resp = await factoryService.getAll({ page: 1, limit: 100 });
+        const data = resp.data?.rows || resp.data || [];
+        setFactoryList(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error('공장 목록 조회 실패:', e);
+        setFactoryList([]);
+      }
+    };
+    loadFactories();
+  }, []);
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
@@ -37,13 +56,30 @@ const Inventory = () => {
           <>
             <InventoryStatusFilter onFilterChange={handleFilterChange} />
             <InventoryStatusSummary />
-            <InventoryStatusList filters={filters} />
+            <InventoryStatusList filters={{ ...filters, factoryId: selectedFactoryId }} />
           </>
         );
       case 'tracking':
         return (
           <>
-            <InventoryMovementList />
+            <InventoryMovementList factoryId={selectedFactoryId} />
+          </>
+        );
+      case 'transfer':
+        return (
+          <>
+            <WarehouseTransfer />
+          </>
+        );
+      case 'temperature':
+        return (
+          <>
+            <TemperatureInput 
+              onTemperatureAdded={() => setTemperatureRefresh(prev => prev + 1)} 
+            />
+            <TemperatureList 
+              refreshTrigger={temperatureRefresh} 
+            />
           </>
         );
       case 'dashboard':
@@ -52,13 +88,6 @@ const Inventory = () => {
             <WarehouseUtilization />
           </>
         );
-        case 'temperature':
-          return (
-            <>
-              <TemperatureInput />
-              <TemperatureList />
-            </>
-          )
       default:
         return null;
     }
@@ -78,6 +107,19 @@ const Inventory = () => {
           <p className='text-sm text-gray-600'>
             공장, 창고, 로트, 유통기한 필터 및 바코드 히스토리
           </p>
+        </div>
+        <div className='flex items-center space-x-2'>
+          <label className='text-xs text-gray-600'>공장</label>
+          <select
+            value={selectedFactoryId}
+            onChange={(e) => setSelectedFactoryId(e.target.value)}
+            className='rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-2 focus:ring-[#674529]/20'
+          >
+            <option value=''>전체</option>
+            {factoryList.map((f) => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+          </select>
         </div>
         <button
           onClick={handleExport}

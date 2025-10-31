@@ -33,6 +33,14 @@ export default function App() {
           element={<Receiving subPage='nav2' />}
         />
         <Route
+          path='receiving/nav3'
+          element={<Receiving subPage='nav3' />}
+        />
+        <Route
+          path='receiving/nav4'
+          element={<Receiving subPage='nav4' />}
+        />
+        <Route
           path='manufacturing/nav1'
           element={<Manufacturing subPage='nav1' />}
         />
@@ -52,10 +60,15 @@ export default function App() {
           path='manufacturing/nav5'
           element={<Manufacturing subPage='nav5' />}
         />
+        <Route
+          path='manufacturing/factory/:factoryId'
+          element={<Manufacturing subPage='factory' />}
+        />
         <Route path='inventory' element={<Inventory />} />
         <Route path='shipping/nav1' element={<Shipping subPage='nav1' />} />
         <Route path='shipping/nav2' element={<Shipping subPage='nav2' />} />
         <Route path='shipping/nav3' element={<Shipping subPage='nav3' />} />
+        <Route path='shipping/nav4' element={<Shipping subPage='nav4' />} />
         <Route
           path='approval/nav1'
           element={<ApprovalDashboard subPage='nav1' />}

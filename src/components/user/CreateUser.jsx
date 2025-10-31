@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { authService } from '../../services';
 import { Users, UserPlus } from 'lucide-react';
 
 const CreateUser = () => {
@@ -55,16 +56,15 @@ const CreateUser = () => {
         role: '4', // 고정
       };
 
-      const res = await fetch('http://localhost:4000/api/auth/join', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload),
+      // 로그인/회원가입 API 스펙에 맞춰 최소 필드만 전송
+      const result = await authService.signup({
+        username: payload.username,
+        password: payload.password,
+        name: payload.full_name,
+        email: payload.email,
       });
-      if (!res.ok) {
-        const errData = await res.json();
-        setResultMsg(errData.message ? `실패: ${errData.message}` : '사용자 생성 실패');
+      if (result?.ok === false) {
+        setResultMsg(result?.message ? `실패: ${result.message}` : '사용자 생성 실패');
       } else {
         setResultMsg('사용자 생성 성공!');
         setFormData({

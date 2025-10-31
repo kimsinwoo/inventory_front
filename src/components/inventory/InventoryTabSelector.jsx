@@ -2,6 +2,8 @@ const InventoryTabSelector = ({ activeTab, onTabChange }) => {
   const tabs = [
     { id: 'status', name: '재고 현황' },
     { id: 'tracking', name: '이력 추적' },
+    { id: 'transfer', name: '창고 이동' },
+    { id: 'temperature', name: '온도 관리' },
     { id: 'dashboard', name: '분석 대시보드' },
   ];
 

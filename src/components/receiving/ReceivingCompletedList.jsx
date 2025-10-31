@@ -18,12 +18,13 @@ const ReceivingCompletedList = ({ completedData, onCancel, onLabelPrint }) => {
       <div className='overflow-x-auto'>
         <table className='w-full table-fixed'>
           <colgroup>
-            <col className='w-[12%]' />
+            <col className='w-[10%]' />
             <col className='w-[20%]' />
+            <col className='w-[10%]' />
             <col className='w-[12%]' />
             <col className='w-[12%]' />
             <col className='w-[12%]' />
-            <col className='w-[32%]' />
+            <col className='w-[24%]' />
           </colgroup>
           <thead>
             <tr>
@@ -34,45 +35,54 @@ const ReceivingCompletedList = ({ completedData, onCancel, onLabelPrint }) => {
                 품목명
               </th>
               <th className='px-4 py-3 text-left text-xs font-semibold text-gray-600'>
-                주문량
-              </th>
-              <th className='px-4 py-3 text-left text-xs font-semibold text-gray-600'>
                 입고량
               </th>
               <th className='px-4 py-3 text-left text-xs font-semibold text-gray-600'>
-                묶음 수
+                바코드번호
+              </th>
+              <th className='px-4 py-3 text-left text-xs font-semibold text-gray-600'>
+                공장
+              </th>
+              <th className='px-4 py-3 text-left text-xs font-semibold text-gray-600'>
+                입고일시
+              </th>
+              <th className='px-4 py-3 text-left text-xs font-semibold text-gray-600'>
+                작업
               </th>
             </tr>
           </thead>
           <tbody className='divide-y divide-gray-200'>
-            {completedData.map((item) => (
-              <tr key={item.id}>
+            {completedData.map((data) => (
+              <tr key={data.id}>
                 <td className='px-4 py-4 text-sm font-medium text-gray-900'>
-                  {item.itemCode}
+                  {data.item?.code || data.itemCode || '-'}
                 </td>
                 <td className='px-4 py-4 text-sm text-gray-900'>
-                  {item.itemName}
+                  {data.item?.name || data.itemName || '-'}
                 </td>
                 <td className='px-4 py-4 text-sm text-gray-700'>
-                  {item.expectedQuantity}
+                  {data.quantity} {data.unit}
                 </td>
                 <td className='px-4 py-4 text-sm text-gray-700'>
-                  {item.receivedQuantity}
+                  {data.barcode || '-'}
                 </td>
                 <td className='px-4 py-4 text-sm text-gray-700'>
-                  {item.unitCount}
+                  {data.toFactory?.name || data.factory?.name || '-'}
+                </td>
+                <td className='px-4 py-4 text-sm text-gray-700'>
+                  {data.time || data.receivedDate || '-'}
                 </td>
                 <td className='px-4 py-4'>
                   <div className='flex items-center justify-end space-x-2'>
                     <button
-                      onClick={() => onCancel(item.id)}
+                      onClick={() => onCancel(data.id)}
                       className='flex items-center space-x-1 rounded-xl bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-100'
                     >
                       <X className='h-4 w-4' />
                       <span>입고 취소</span>
                     </button>
                     <button
-                      onClick={() => onLabelPrint(item)}
+                      onClick={() => onLabelPrint(data)}
                       className='flex items-center space-x-1 rounded-xl bg-[#674529] hover:bg-[#553821] px-3 py-1.5 text-sm font-medium text-white transition-colors'
                     >
                       <Printer className='h-4 w-4 ' />

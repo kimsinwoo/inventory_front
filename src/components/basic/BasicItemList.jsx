@@ -1,6 +1,7 @@
    import { useState, useEffect, useMemo } from 'react';
 import { Package, Edit, Trash2, Factory, Save, X } from 'lucide-react';
 import Pagination from '../common/Pagination';
+import { itemService } from '../../services';
 
 const API = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
 
@@ -45,10 +46,8 @@ const BasicItemList = () => {
     const fetchItems = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${API}/items`, { credentials: 'include' });
-        if (!res.ok) throw new Error('Fetch error');
-        const data = await res.json();
-        const rows = Array.isArray(data?.data) ? data.data : [];
+        const res = await itemService.getAll({ page: 1, limit: 1000 });
+        const rows = Array.isArray(res?.data) ? res.data : [];
         if (!ignore) setItems(rows.length > 0 ? rows : mockRows);
       } catch (e) {
         if (!ignore) setItems(mockRows);
@@ -120,42 +119,18 @@ const BasicItemList = () => {
         wholesalePrice: Number(editForm.wholesalePrice) || 0,
       };
 
-      const endpoint = `${API}/items/${item.id}`;
+      const endpointUpdate = async () => {
+        const result = await itemService.update(item.id, payload);
+        return result?.data ?? result;
+      };
       let usedMock = false;
       let responseData = null;
       let errorMsg = "";
-
       try {
-        const res = await fetch(endpoint, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: 'include',
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          if (res.status === 404) {
-            usedMock = true;
-            errorMsg = '해당 ID의 품목을 찾을 수 없습니다 (404)';
-          } else {
-            const errJson = await res.json().catch(() => ({}));
-            throw new Error(errJson.message || "수정 중 오류가 발생했습니다.");
-          }
-        } else {
-          // 응답이 { ok, message, data } 구조라고 가정 (참고 예시와 동일)
-          const result = await res.json();
-          if (!result.ok) {
-            throw new Error(result.message || "수정 중 오류가 발생했습니다.");
-          }
-          responseData = result.data;
-        }
+        responseData = await endpointUpdate();
       } catch (apiErr) {
-        if (!errorMsg) {
-          usedMock = true;
-          errorMsg = (apiErr?.message || '서버와의 통신에 실패했습니다. (mock 데이터로만 수정)');
-        }
+        usedMock = true;
+        errorMsg = (apiErr?.response?.data?.message || apiErr?.message || '서버와의 통신에 실패했습니다. (mock 데이터로만 수정)');
       }
 
       if (usedMock) {

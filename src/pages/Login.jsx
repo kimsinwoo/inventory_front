@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, User, Lock } from 'lucide-react';
+import { authService } from '../services';
 
 const Login = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    userId: '',
+    username: '',
     password: ''
   });
   const [loading, setLoading] = useState(false);
@@ -22,49 +23,39 @@ const Login = () => {
     e.preventDefault();
 
     // 유효성 체크
-    if (!formData.userId || !formData.password) {
+    if (!formData.username || !formData.password) {
       alert('아이디와 비밀번호를 입력해주세요.');
       return;
     }
     setLoading(true);
 
     try {
-      // API로 로그인 요청보내기
-      const response = await fetch('http://localhost:4000/api/auth/login', {
-        method: 'POST',
-        credentials: 'include', // 세션 쿠키 받아오기 위해 필요!
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          username: formData.userId,
-          password: formData.password
-        })
-      });
+      // authService를 사용한 로그인
+      const response = await authService.login(formData.username, formData.password);
+      
+      if (response.ok !== false) {
+        // 로그인 성공 - 사용자 정보 저장
+        const userData = response.data?.user || response.user || response.data || {
+          username: formData.username,
+          name: formData.username,
+        };
 
-      if (!response.ok) {
-        // 서버에서 401 등 에러 메세지 내려주면
-        let msg = '로그인에 실패했습니다.';
-        try {
-          const res = await response.json();
-          msg = res?.message || msg;
-        } catch (err) {}
-        throw new Error(msg);
+        localStorage.setItem(
+          'user',
+          JSON.stringify({
+            ...userData,
+            loginTime: new Date().toISOString()
+          })
+        );
+
+        alert('로그인되었습니다.');
+        navigate('/dash');
+      } else {
+        throw new Error(response.message || '로그인에 실패했습니다.');
       }
-
-      // 로그인 성공 시(여기선 로그인 성공 후 사용자의 정보는 직접 내려오는 API 따로 필요해 보임)
-      localStorage.setItem(
-        'user',
-        JSON.stringify({
-          userId: formData.userId,
-          name: formData.userId, // TODO: 서버에서 이름이나 정보를 내려주도록 바꿀 수 있음
-          loginTime: new Date().toISOString()
-        })
-      );
-
-      navigate('/dash');
     } catch (error) {
-      alert(error.message);
+      console.error('로그인 오류:', error);
+      alert(error.customMessage || error.message || '로그인에 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -94,7 +85,7 @@ const Login = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* 아이디 입력 */}
             <div>
-              <label htmlFor="userId" className="block text-sm font-medium text-[#674529] mb-2">
+              <label htmlFor="username" className="block text-sm font-medium text-[#674529] mb-2">
                 아이디
               </label>
               <div className="relative">
@@ -103,9 +94,9 @@ const Login = () => {
                 </div>
                 <input
                   type="text"
-                  id="userId"
-                  name="userId"
-                  value={formData.userId}
+                  id="username"
+                  name="username"
+                  value={formData.username}
                   onChange={handleChange}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#A3C478] focus:border-transparent outline-none transition-all"
                   placeholder="아이디를 입력하세요"

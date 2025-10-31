@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Package, AlertTriangle, Clock, MapPin } from "lucide-react";
-
-const BASE = import.meta.env.VITE_API_BASE_URL;
+import { inventoryService } from "../../services";
 
 export default function InventoryStatusSummary() {
   const [data, setData] = useState({
@@ -13,13 +12,16 @@ export default function InventoryStatusSummary() {
   });
 
   useEffect(() => {
-    let alive = true;
-    fetch(`${BASE}/inventories/summary`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((json) => {
-        if (alive && json?.ok) setData(json.data ?? data);
-      });
-    return () => { alive = false; };
+    const fetchSummary = async () => {
+      try {
+        const response = await inventoryService.getSummary();
+        const summaryData = response.data || response;
+        setData(summaryData);
+      } catch (err) {
+        console.error("재고 요약 데이터 불러오기 실패:", err);
+      }
+    };
+    fetchSummary();
   }, []);
 
   const summaryCards = [

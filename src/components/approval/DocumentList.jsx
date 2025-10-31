@@ -1,53 +1,85 @@
-import { FileText, Eye, Download } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { FileText, Eye, Download, CheckCircle, XCircle } from 'lucide-react';
+import { approvalService } from '../../services';
 
 const DocumentList = () => {
-  const documents = [
-    {
-      id: 1,
-      docNumber: 'DOC-2024-0001',
-      title: '1월 1주차 생산 원료 보고서',
-      type: '생산 원료 보고서',
-      status: '결재중',
-      statusColor: 'bg-[#ffedd4] text-[#f65814]',
-      author: '김생산',
-      createdDate: '2024-01-15',
-      approvalSteps: [
-        { step: 1, status: 'completed' },
-        { step: 2, status: 'pending' },
-        { step: 3, status: 'waiting' },
-      ],
-    },
-    {
-      id: 2,
-      docNumber: 'DOC-2024-0002',
-      title: '제품 불량 발생 보고서',
-      type: '불량 보고서',
-      status: '반려',
-      statusColor: 'bg-[#f8d7da] text-[#dc3545]',
-      author: '이품질',
-      createdDate: '2024-01-14',
-      approvalSteps: [
-        { step: 1, status: 'completed' },
-        { step: 2, status: 'rejected' },
-        { step: 3, status: 'waiting' },
-      ],
-    },
-    {
-      id: 3,
-      docNumber: 'DOC-2024-0003',
-      title: '안전점검표 (1월 2주차)',
-      type: '안전점검표',
-      status: '승인완료',
-      statusColor: 'bg-[#d4edda] text-[#28a745]',
-      author: '안전관리자',
-      createdDate: '2024-01-12',
-      approvalSteps: [
-        { step: 1, status: 'completed' },
-        { step: 2, status: 'completed' },
-        { step: 3, status: 'completed' },
-      ],
-    },
-  ];
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState(null);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
+
+  const fetchDocuments = async () => {
+    setLoading(true);
+    try {
+      const response = await approvalService.getInbox();
+      const docs = response.data || response || [];
+      setDocuments(Array.isArray(docs) ? docs : []);
+    } catch (error) {
+      console.error('결재 문서 조회 실패:', error);
+      setDocuments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApprove = async (id) => {
+    if (!confirm('이 문서를 승인하시겠습니까?')) return;
+
+    try {
+      await approvalService.approve(id);
+      alert('문서가 승인되었습니다!');
+      fetchDocuments();
+    } catch (error) {
+      console.error('승인 실패:', error);
+      alert('승인에 실패했습니다.');
+    }
+  };
+
+  const handleReject = async (id) => {
+    const reason = prompt('반려 사유를 입력하세요:');
+    if (!reason) return;
+
+    try {
+      await approvalService.reject(id, reason);
+      alert('문서가 반려되었습니다.');
+      fetchDocuments();
+    } catch (error) {
+      console.error('반려 실패:', error);
+      alert('반려에 실패했습니다.');
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'pending':
+      case '결재중':
+        return 'bg-[#ffedd4] text-[#f65814]';
+      case 'approved':
+      case '승인완료':
+        return 'bg-[#d4edda] text-[#28a745]';
+      case 'rejected':
+      case '반려':
+        return 'bg-[#f8d7da] text-[#dc3545]';
+      default:
+        return 'bg-gray-200 text-gray-700';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'pending':
+        return '결재중';
+      case 'approved':
+        return '승인완료';
+      case 'rejected':
+        return '반려';
+      default:
+        return status;
+    }
+  };
 
   return (
     <div className='overflow-hidden rounded-xl bg-white shadow-sm'>
@@ -63,104 +95,100 @@ const DocumentList = () => {
         </p>
       </div>
 
-      <div className='overflow-x-auto'>
-        <table className='w-full'>
-          <thead className='bg-gray-50 border-b border-gray-200'>
-            <tr>
-              <th className='px-4 py-3 text-left text-sm font-medium text-gray-700'>
-                문서번호
-              </th>
-              <th className='px-4 py-3 text-left text-sm font-medium text-gray-700'>
-                제목
-              </th>
-              <th className='px-4 py-3 text-left text-sm font-medium text-gray-700'>
-                유형
-              </th>
-              <th className='px-4 py-3 text-left text-sm font-medium text-gray-700'>
-                상태
-              </th>
-              <th className='px-4 py-3 text-left text-sm font-medium text-gray-700'>
-                작성자
-              </th>
-              <th className='px-4 py-3 text-left text-sm font-medium text-gray-700'>
-                작성일
-              </th>
-              <th className='px-4 py-3 text-left text-sm font-medium text-gray-700'>
-                진행단계
-              </th>
-              <th className='px-4 py-3 text-left text-sm font-medium text-gray-700'>
-                작업
-              </th>
-            </tr>
-          </thead>
-          <tbody className='divide-y divide-gray-100'>
-            {documents.map((doc) => (
-              <tr
-                key={doc.id}
-                className='transition-colors hover:bg-gray-50/50'
-              >
-                <td className='px-4 py-4 text-sm font-medium text-gray-900'>
-                  {doc.docNumber}
-                </td>
-                <td className='px-4 py-4 text-sm text-gray-900'>{doc.title}</td>
-                <td className='px-4 py-4 text-sm text-gray-700'>{doc.type}</td>
-                <td className='px-4 py-4'>
-                  <span
-                    className={`inline-flex rounded px-3 py-1 text-xs font-medium ${doc.statusColor}`}
-                  >
-                    {doc.status}
-                  </span>
-                </td>
-                <td className='px-4 py-4 text-sm text-gray-700'>
-                  {doc.author}
-                </td>
-                <td className='px-4 py-4 text-sm text-gray-700'>
-                  {doc.createdDate}
-                </td>
-                <td className='px-4 py-4'>
-                  <div className='flex items-center space-x-2'>
-                    {doc.approvalSteps.map((stepData, index) => (
-                      <div
-                        key={index}
-                        className='flex items-center'
-                      >
-                        <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium ${
-                            stepData.status === 'completed'
-                              ? 'bg-[#d4edda] text-[#28a745]'
-                              : stepData.status === 'pending'
-                                ? 'bg-[#ffedd4] text-[#f65814]'
-                                : stepData.status === 'rejected'
-                                  ? 'bg-[#f8d7da] text-[#dc3545]'
-                                  : 'bg-gray-200 text-gray-500'
-                          }`}
-                        >
-                          {stepData.step}
-                        </div>
-                        {index < doc.approvalSteps.length - 1 && (
-                          <div className='mx-1 text-gray-400'>→</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </td>
-                <td className='px-4 py-4'>
-                  <div className='flex items-center space-x-2'>
-                    <button className='text-gray-500 transition-colors hover:text-[#674529]'>
-                      <Eye className='h-5 w-5' />
-                    </button>
-                    {doc.status === '승인완료' && (
-                      <button className='text-gray-500 transition-colors hover:text-[#674529]'>
-                        <Download className='h-5 w-5' />
-                      </button>
-                    )}
-                  </div>
-                </td>
+      {loading ? (
+        <div className="p-8 text-center text-gray-500">로딩 중...</div>
+      ) : documents.length === 0 ? (
+        <div className="p-8 text-center text-gray-500">결재 대기 문서가 없습니다.</div>
+      ) : (
+        <div className='overflow-x-auto'>
+          <table className='w-full'>
+            <thead className='bg-gray-50 border-b border-gray-200'>
+              <tr>
+                <th className='px-4 py-3 text-left text-sm font-medium text-gray-700'>
+                  문서번호
+                </th>
+                <th className='px-4 py-3 text-left text-sm font-medium text-gray-700'>
+                  제목
+                </th>
+                <th className='px-4 py-3 text-left text-sm font-medium text-gray-700'>
+                  유형
+                </th>
+                <th className='px-4 py-3 text-left text-sm font-medium text-gray-700'>
+                  상태
+                </th>
+                <th className='px-4 py-3 text-left text-sm font-medium text-gray-700'>
+                  작성자
+                </th>
+                <th className='px-4 py-3 text-left text-sm font-medium text-gray-700'>
+                  작성일
+                </th>
+                <th className='px-4 py-3 text-left text-sm font-medium text-gray-700'>
+                  작업
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className='divide-y divide-gray-100'>
+              {documents.map((doc) => (
+                <tr
+                  key={doc.id}
+                  className='transition-colors hover:bg-gray-50/50'
+                >
+                  <td className='px-4 py-4 text-sm font-medium text-gray-900'>
+                    {doc.docNumber || `DOC-${doc.id}`}
+                  </td>
+                  <td className='px-4 py-4 text-sm text-gray-900'>{doc.title || '-'}</td>
+                  <td className='px-4 py-4 text-sm text-gray-700'>{doc.type || '-'}</td>
+                  <td className='px-4 py-4'>
+                    <span
+                      className={`inline-flex rounded px-3 py-1 text-xs font-medium ${getStatusColor(doc.status)}`}
+                    >
+                      {getStatusText(doc.status)}
+                    </span>
+                  </td>
+                  <td className='px-4 py-4 text-sm text-gray-700'>
+                    {doc.author || doc.authorName || '-'}
+                  </td>
+                  <td className='px-4 py-4 text-sm text-gray-700'>
+                    {doc.createdDate || doc.createdAt
+                      ? new Date(doc.createdDate || doc.createdAt).toLocaleDateString()
+                      : '-'}
+                  </td>
+                  <td className='px-4 py-4'>
+                    <div className='flex items-center space-x-2'>
+                      {doc.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => handleApprove(doc.id)}
+                            className='flex items-center space-x-1 rounded bg-green-100 px-2 py-1 text-xs text-green-700 hover:bg-green-200'
+                          >
+                            <CheckCircle className='h-4 w-4' />
+                            <span>승인</span>
+                          </button>
+                          <button
+                            onClick={() => handleReject(doc.id)}
+                            className='flex items-center space-x-1 rounded bg-red-100 px-2 py-1 text-xs text-red-700 hover:bg-red-200'
+                          >
+                            <XCircle className='h-4 w-4' />
+                            <span>반려</span>
+                          </button>
+                        </>
+                      )}
+                      <button className='text-gray-500 transition-colors hover:text-[#674529]'>
+                        <Eye className='h-5 w-5' />
+                      </button>
+                      {(doc.status === 'approved' || doc.status === '승인완료') && (
+                        <button className='text-gray-500 transition-colors hover:text-[#674529]'>
+                          <Download className='h-5 w-5' />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };

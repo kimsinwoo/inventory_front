@@ -1,16 +1,20 @@
 import { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
-
-const BASE = import.meta.env.VITE_API_BASE_URL;
+import { inventoryService } from "../../services";
 
 export default function WarehouseUtilization() {
   const [rows, setRows] = useState([]);
 
   useEffect(() => {
     let alive = true;
-    fetch(`${BASE}/inventories/utilization`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((json) => { if (alive && json?.ok) setRows(json.data ?? []); });
+    (async () => {
+      try {
+        const res = await inventoryService.getUtilization();
+        if (alive) setRows(res?.data ?? []);
+      } catch (e) {
+        if (alive) setRows([]);
+      }
+    })();
     return () => { alive = false; };
   }, []);
 

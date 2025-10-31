@@ -1,11 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Thermometer, X, Plus } from 'lucide-react';
-
-// API 환경변수가 없는 경우 fallback 적용
-const API_BASE =
-  (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL)) ||
-  (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) ||
-  'http://localhost:4000/api';
+import { storageConditionService } from '../../services';
 
 const StorageTemperature = () => {
   const [storageConditions, setStorageConditions] = useState([]);
@@ -21,25 +16,9 @@ const StorageTemperature = () => {
     try {
       setLoading(true);
       setErrorMsg('');
-      const res = await fetch(`${API_BASE}/storage-conditions`, {
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const data = await res.json();
-      // 상황별로 다 대응
-      if (Array.isArray(data)) {
-        setStorageConditions(data);
-      } else if (data?.items && Array.isArray(data.items)) {
-        setStorageConditions(data.items);
-      } else if (data?.data && Array.isArray(data.data)) {
-        setStorageConditions(data.data);
-      } else if (Array.isArray(data.storageConditions)) {
-        setStorageConditions(data.storageConditions);
-      } else {
-        setStorageConditions([]);
-      }
+      const res = await storageConditionService.getAll();
+      const data = res?.data ?? res ?? [];
+      setStorageConditions(Array.isArray(data) ? data : []);
     } catch (err) {
       setErrorMsg('보관 조건 정보를 불러오지 못했습니다.');
       setStorageConditions([]);
@@ -75,26 +54,9 @@ const StorageTemperature = () => {
     }
     setModalLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/storage-conditions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newConditionName.trim() }),
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const data = await res.json();
-      if (
-        (data.ok === false || data.success === false) &&
-        data.message
-      ) {
-        setErrorMsg(data.message || '추가 실패');
-      } else {
-        // 정상 추가: 다시 목록 가져옴
-        fetchConditions();
-        closeModal();
-      }
+      await storageConditionService.create({ name: newConditionName.trim() });
+      await fetchConditions();
+      closeModal();
     } catch (err) {
       setErrorMsg('서버 오류 (추가 실패)');
       if (typeof console !== "undefined") console.error('보관조건 추가 실패', err);

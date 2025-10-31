@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -12,9 +12,11 @@ import {
   Home,
   FileText,
 } from 'lucide-react';
+import { factoryService } from '../services';
 
 const Sidebar = ({ activeNav, setActiveNav }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [factories, setFactories] = useState([]);
   const [openSections, setOpenSections] = useState({
     기초정보: false,
     입출고관리: false,
@@ -23,6 +25,19 @@ const Sidebar = ({ activeNav, setActiveNav }) => {
     전자결재: false,
     사용자관리: false,
   });
+
+  useEffect(() => {
+    fetchFactories();
+  }, []);
+
+  const fetchFactories = async () => {
+    try {
+      const response = await factoryService.getAll();
+      setFactories(response.data || []);
+    } catch (error) {
+      console.error('공장 목록 조회 실패:', error);
+    }
+  };
 
   const toggleSection = (section) => {
     setOpenSections((prev) => ({
@@ -192,6 +207,26 @@ const Sidebar = ({ activeNav, setActiveNav }) => {
               >
                 출고관리
               </button>
+              <button
+                onClick={() => setActiveNav('입출고관리-nav3')}
+                className={`block w-full rounded p-1.5 text-left text-xs ${
+                  activeNav === '입출고관리-nav3'
+                    ? 'bg-[#674529] text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                재고 입고 간편등록
+              </button>
+              <button
+                onClick={() => setActiveNav('입출고관리-nav4')}
+                className={`block w-full rounded p-1.5 text-left text-xs ${
+                  activeNav === '입출고관리-nav4'
+                    ? 'bg-[#674529] text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                재고 출고 간편등록
+              </button>
             </div>
           )}
         </div>
@@ -244,16 +279,6 @@ const Sidebar = ({ activeNav, setActiveNav }) => {
                 제조이력 캘린더
               </button>
               <button
-                onClick={() => setActiveNav('제조관리-nav2')}
-                className={`block w-full rounded p-1.5 text-left text-xs ${
-                  activeNav === '제조관리-nav2'
-                    ? 'bg-[#674529] text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                1공장 전처리
-              </button>
-              <button
                 onClick={() => setActiveNav('제조관리-nav3')}
                 className={`block w-full rounded p-1.5 text-left text-xs ${
                   activeNav === '제조관리-nav3'
@@ -263,26 +288,24 @@ const Sidebar = ({ activeNav, setActiveNav }) => {
               >
                 공장간 이동
               </button>
-              <button
-                onClick={() => setActiveNav('제조관리-nav4')}
-                className={`block w-full rounded p-1.5 text-left text-xs ${
-                  activeNav === '제조관리-nav4'
-                    ? 'bg-[#674529] text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                2공장 제조
-              </button>
-              <button
-                onClick={() => setActiveNav('제조관리-nav5')}
-                className={`block w-full rounded p-1.5 text-left text-xs ${
-                  activeNav === '제조관리-nav5'
-                    ? 'bg-[#674529] text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                작업지시서 관리
-              </button>
+              
+              {/* 공장별 작업지시서 메뉴 */}
+              <div className='border-t border-gray-200 pt-1 mt-1'>
+                <p className='text-xs text-gray-500 px-1.5 py-1'>작업지시서</p>
+                {factories.map((factory) => (
+                  <button
+                    key={factory.id}
+                    onClick={() => setActiveNav(`제조관리-factory-${factory.id}`)}
+                    className={`block w-full rounded p-1.5 text-left text-xs ${
+                      activeNav === `제조관리-factory-${factory.id}`
+                        ? 'bg-[#674529] text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    📋 {factory.name}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -352,7 +375,17 @@ const Sidebar = ({ activeNav, setActiveNav }) => {
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
-                출고 간편등록
+                재고 입고
+              </button>
+              <button
+                onClick={() => setActiveNav('배송관리-nav4')}
+                className={`block w-full rounded p-1.5 text-left text-xs ${
+                  activeNav === '배송관리-nav4'
+                    ? 'bg-[#674529] text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                재고 출고
               </button>
             </div>
           )}

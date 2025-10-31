@@ -1,16 +1,20 @@
 import { useEffect, useState } from "react";
 import { TrendingUp, AlertTriangle, Package } from "lucide-react";
-
-const BASE = import.meta.env.VITE_API_BASE_URL;
+import { inventoryService } from "../../services";
 
 export default function InventoryAlertsSummary() {
   const [summary, setSummary] = useState({ lowStock: 0, expiringSoon: 0 });
 
   useEffect(() => {
     let alive = true;
-    fetch(`${BASE}/inventories/summary`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((json) => { if (alive && json?.ok) setSummary(json.data ?? summary); });
+    (async () => {
+      try {
+        const res = await inventoryService.getSummary();
+        if (alive) setSummary(res?.data ?? summary);
+      } catch (e) {
+        // ignore
+      }
+    })();
     return () => { alive = false; };
   }, []);
 

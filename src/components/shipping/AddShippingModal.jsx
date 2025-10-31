@@ -1,36 +1,50 @@
 import { X } from 'lucide-react';
-import { useState } from 'react';
-import { items, getItemByName } from '../../data/items';
+import { useState, useEffect } from 'react';
+import { itemService, factoryService } from '../../services';
 
 const AddShippingModal = ({ isOpen, onClose, onSubmit }) => {
+  const [itemList, setItemList] = useState([]);
+  const [factoryList, setFactoryList] = useState([]);
   const [formData, setFormData] = useState({
-    itemName: '',
-    itemCode: '',
-    unit: '',
-    expectedQuantity: '',
+    itemId: '',
+    factoryId: '',
+    quantity: '',
+    unit: 'kg',
+    issueType: 'SHIPPING',
+    customerName: '',
+    shippingAddress: '',
+    note: '',
     expectedDate: new Date().toISOString().split('T')[0],
   });
 
-  const handleItemChange = (e) => {
-    const selectedItemName = e.target.value;
-    const selectedItem = getItemByName(selectedItemName);
-
-    if (selectedItem) {
-      setFormData((prev) => ({
-        ...prev,
-        itemName: selectedItem.name,
-        itemCode: selectedItem.code,
-        unit: selectedItem.unit,
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        itemName: '',
-        itemCode: '',
-        unit: '',
-      }));
+  useEffect(() => {
+    if (isOpen) {
+      fetchItemList();
+      fetchFactoryList();
     }
-  };
+  }, [isOpen]);
+
+  async function fetchItemList() {
+    try {
+      const response = await itemService.getAll({ page: 1, limit: 1000 });
+      const data = response.data?.rows || response.data || [];
+      setItemList(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('품목 목록 조회 실패:', error);
+      setItemList([]);
+    }
+  }
+
+  async function fetchFactoryList() {
+    try {
+      const response = await factoryService.getAll({ page: 1, limit: 100 });
+      const data = response.data?.rows || response.data || [];
+      setFactoryList(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('공장 목록 조회 실패:', error);
+      setFactoryList([]);
+    }
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -45,10 +59,14 @@ const AddShippingModal = ({ isOpen, onClose, onSubmit }) => {
     onSubmit(formData);
     // 폼 초기화
     setFormData({
-      itemName: '',
-      itemCode: '',
-      unit: '',
-      expectedQuantity: '',
+      itemId: '',
+      factoryId: '',
+      quantity: '',
+      unit: 'kg',
+      issueType: 'SHIPPING',
+      customerName: '',
+      shippingAddress: '',
+      note: '',
       expectedDate: new Date().toISOString().split('T')[0],
     });
   };
@@ -75,64 +93,130 @@ const AddShippingModal = ({ isOpen, onClose, onSubmit }) => {
         <form onSubmit={handleSubmit}>
           <div className='max-h-[70vh] overflow-y-auto px-6 py-4'>
             <div className='grid gap-4'>
-              {/* 품목명 선택 */}
+              {/* 품목 선택 */}
               <div>
                 <label className='mb-1 block text-sm font-medium text-gray-700'>
-                  품목명 <span className='text-red-500'>*</span>
+                  품목 선택 <span className='text-red-500'>*</span>
                 </label>
                 <select
-                  name='itemName'
-                  value={formData.itemName}
-                  onChange={handleItemChange}
+                  name='itemId'
+                  value={formData.itemId}
+                  onChange={handleChange}
                   required
                   className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
                 >
                   <option value=''>품목을 선택하세요</option>
-                  {items.map((item) => (
-                    <option key={item.code} value={item.name}>
-                      {item.name}
+                  {itemList.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      [{item.code || item.id}] {item.name}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* 품목코드 (자동 표시) */}
+              {/* 공장 선택 */}
               <div>
                 <label className='mb-1 block text-sm font-medium text-gray-700'>
-                  품목코드
+                  공장 선택 <span className='text-red-500'>*</span>
+                </label>
+                <select
+                  name='factoryId'
+                  value={formData.factoryId}
+                  onChange={handleChange}
+                  required
+                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                >
+                  <option value=''>공장을 선택하세요</option>
+                  {factoryList.map((factory) => (
+                    <option key={factory.id} value={factory.id}>
+                      {factory.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 수량 및 단위 */}
+              <div className='grid grid-cols-2 gap-4'>
+                <div>
+                  <label className='mb-1 block text-sm font-medium text-gray-700'>
+                    수량 <span className='text-red-500'>*</span>
+                  </label>
+                  <input
+                    type='number'
+                    step='0.01'
+                    name='quantity'
+                    value={formData.quantity}
+                    onChange={handleChange}
+                    required
+                    className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                    placeholder='수량 입력'
+                  />
+                </div>
+                <div>
+                  <label className='mb-1 block text-sm font-medium text-gray-700'>
+                    단위
+                  </label>
+                  <select
+                    name='unit'
+                    value={formData.unit}
+                    onChange={handleChange}
+                    className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                  >
+                    <option value='kg'>kg</option>
+                    <option value='g'>g</option>
+                    <option value='L'>L</option>
+                    <option value='ml'>ml</option>
+                    <option value='개'>개</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 출고 유형 */}
+              <div>
+                <label className='mb-1 block text-sm font-medium text-gray-700'>
+                  출고 유형
+                </label>
+                <select
+                  name='issueType'
+                  value={formData.issueType}
+                  onChange={handleChange}
+                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                >
+                  <option value='SHIPPING'>배송</option>
+                  <option value='PRODUCTION'>생산</option>
+                  <option value='DAMAGE'>불량/폐기</option>
+                  <option value='OTHER'>기타</option>
+                </select>
+              </div>
+
+              {/* 고객명 */}
+              <div>
+                <label className='mb-1 block text-sm font-medium text-gray-700'>
+                  고객명
                 </label>
                 <input
                   type='text'
-                  value={formData.itemCode}
-                  readOnly
-                  className='w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-600'
-                  placeholder=''
+                  name='customerName'
+                  value={formData.customerName}
+                  onChange={handleChange}
+                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                  placeholder='고객명 입력'
                 />
               </div>
 
-              {/* 주문량 */}
+              {/* 배송지 */}
               <div>
                 <label className='mb-1 block text-sm font-medium text-gray-700'>
-                  주문량 <span className='text-red-500'>*</span>
+                  배송지
                 </label>
-                <div className='flex space-x-2'>
-                  <input
-                    type='number'
-                    name='expectedQuantity'
-                    value={formData.expectedQuantity}
-                    onChange={handleChange}
-                    required
-                    className='flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
-                    placeholder='50'
-                  />
-                  <input
-                    type='text'
-                    value={formData.unit}
-                    readOnly
-                    className='w-16 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-center text-sm text-gray-600'
-                    placeholder='단위'
-                  />
-                </div>
+                <input
+                  type='text'
+                  name='shippingAddress'
+                  value={formData.shippingAddress}
+                  onChange={handleChange}
+                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                  placeholder='배송지 주소 입력'
+                />
               </div>
 
               {/* 출고예정일 */}
@@ -147,6 +231,21 @@ const AddShippingModal = ({ isOpen, onClose, onSubmit }) => {
                   onChange={handleChange}
                   required
                   className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                />
+              </div>
+
+              {/* 비고 */}
+              <div>
+                <label className='mb-1 block text-sm font-medium text-gray-700'>
+                  비고
+                </label>
+                <input
+                  type='text'
+                  name='note'
+                  value={formData.note}
+                  onChange={handleChange}
+                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                  placeholder='비고 입력'
                 />
               </div>
             </div>

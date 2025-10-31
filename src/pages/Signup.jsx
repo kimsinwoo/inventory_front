@@ -1,20 +1,18 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, User, Lock, Phone, Mail, Calendar, IdCard, Briefcase, Building2 } from 'lucide-react';
+import { authService } from '../services';
 
 const Signup = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    userId: '',
+    username: '',
+    email: '',
     password: '',
     confirmPassword: '',
-    name: '',
-    phone: '',
-    email: '',
-    position: '',
-    department: '',
-    hireDate: ''
+    name: ''
   });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -24,7 +22,7 @@ const Signup = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // 비밀번호 확인
@@ -33,27 +31,35 @@ const Signup = () => {
       return;
     }
 
-    // 회원가입 로직 구현
-    // 실제로는 서버에 데이터를 전송해야 하지만,
-    // 여기서는 임시로 localStorage에 저장
-    const { confirmPassword, ...userDataToSave } = formData;
-
-    // 기존 사용자 목록 가져오기
-    const existingUsers = JSON.parse(localStorage.getItem('users') || '[]');
-
-    // 중복 아이디 체크
-    const isDuplicate = existingUsers.some(user => user.userId === formData.userId);
-    if (isDuplicate) {
-      alert('이미 존재하는 아이디입니다.');
+    // 필수 필드 체크
+    if (!formData.username || !formData.password || !formData.name) {
+      alert('아이디, 비밀번호, 이름은 필수 입력 항목입니다.');
       return;
     }
 
-    // 새 사용자 추가
-    existingUsers.push(userDataToSave);
-    localStorage.setItem('users', JSON.stringify(existingUsers));
+    setLoading(true);
 
-    alert('회원가입이 완료되었습니다!');
-    navigate('/login');
+    try {
+      // authService를 사용한 회원가입 (/auth/join)
+      const response = await authService.signup(
+        formData.username,
+        formData.password,
+        formData.name,
+        formData.email || undefined
+      );
+
+      if (response.ok !== false) {
+        alert('회원가입이 완료되었습니다!');
+        navigate('/login');
+      } else {
+        throw new Error(response.message || '회원가입에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('회원가입 오류:', error);
+      alert(error.customMessage || error.message || '회원가입에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -80,7 +86,7 @@ const Signup = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* 아이디 입력 */}
             <div>
-              <label htmlFor="userId" className="block text-sm font-medium text-[#674529] mb-2">
+              <label htmlFor="username" className="block text-sm font-medium text-[#674529] mb-2">
                 아이디 <span className="text-red-500">*</span>
               </label>
               <div className="relative">
@@ -89,13 +95,36 @@ const Signup = () => {
                 </div>
                 <input
                   type="text"
-                  id="userId"
-                  name="userId"
-                  value={formData.userId}
+                  id="username"
+                  name="username"
+                  value={formData.username}
                   onChange={handleChange}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#724323] focus:border-transparent outline-none transition-all"
                   placeholder="아이디를 입력하세요"
                   required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            {/* 이메일 입력 (선택) */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-[#674529] mb-2">
+                이메일 (선택)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="w-5 h-5 text-gray-400" />
+                </div>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#724323] focus:border-transparent outline-none transition-all"
+                  placeholder="이메일을 입력하세요"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -163,126 +192,7 @@ const Signup = () => {
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#724323] focus:border-transparent outline-none transition-all"
                   placeholder="이름을 입력하세요"
                   required
-                />
-              </div>
-            </div>
-
-            {/* 연락처 및 이메일 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-[#674529] mb-2">
-                  연락처 <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Phone className="w-5 h-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="tel"
-                    id="phone"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#724323] focus:border-transparent outline-none transition-all"
-                    placeholder="010-0000-0000"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-[#674529] mb-2">
-                  이메일 <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="w-5 h-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#724323] focus:border-transparent outline-none transition-all"
-                    placeholder="example@email.com"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 직급 및 소속 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="position" className="block text-sm font-medium text-[#674529] mb-2">
-                  직급 <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Briefcase className="w-5 h-5 text-gray-400" />
-                  </div>
-                  <select
-                    id="position"
-                    name="position"
-                    value={formData.position}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#724323] focus:border-transparent outline-none transition-all appearance-none bg-white"
-                    style={{ color: formData.position ? '#111827' : '#9ca3af' }}
-                    required
-                  >
-                    <option value="" disabled hidden style={{ color: '#9ca3af' }}>직급을 선택하세요</option>
-                    <option value="이사" style={{ color: '#111827' }}>이사</option>
-                    <option value="팀장" style={{ color: '#111827' }}>팀장</option>
-                    <option value="직원" style={{ color: '#111827' }}>직원</option>
-                    <option value="알바" style={{ color: '#111827' }}>알바</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="department" className="block text-sm font-medium text-[#674529] mb-2">
-                  소속 <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Building2 className="w-5 h-5 text-gray-400" />
-                  </div>
-                  <select
-                    id="department"
-                    name="department"
-                    value={formData.department}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#724323] focus:border-transparent outline-none transition-all appearance-none bg-white"
-                    style={{ color: formData.department ? '#111827' : '#9ca3af' }}
-                    required
-                  >
-                    <option value="" disabled hidden style={{ color: '#9ca3af' }}>소속을 선택하세요</option>
-                    <option value="경영지원팀" style={{ color: '#111827' }}>경영지원팀</option>
-                    <option value="생산팀" style={{ color: '#111827' }}>생산팀</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* 입사일 */}
-            <div>
-              <label htmlFor="hireDate" className="block text-sm font-medium text-[#674529] mb-2">
-                입사일 <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Calendar className="w-5 h-5 text-gray-400" />
-                </div>
-                <input
-                  type="date"
-                  id="hireDate"
-                  name="hireDate"
-                  value={formData.hireDate}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#724323] focus:border-transparent outline-none transition-all"
-                  style={{ color: formData.hireDate ? '#111827' : '#9ca3af' }}
-                  required
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -290,9 +200,10 @@ const Signup = () => {
             {/* 회원가입 버튼 */}
             <button
               type="submit"
-              className="w-full bg-[#724323] text-white py-3 rounded-lg font-semibold hover:bg-[#5a3419] transition-colors duration-200 mt-6"
+              disabled={loading}
+              className={`w-full bg-[#724323] text-white py-3 rounded-lg font-semibold hover:bg-[#5a3419] transition-colors duration-200 mt-6 ${loading ? 'opacity-60 cursor-not-allowed' : ''}`}
             >
-              회원가입
+              {loading ? '회원가입 중...' : '회원가입'}
             </button>
           </form>
 

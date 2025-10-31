@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Filter, ChevronDown } from 'lucide-react';
+import { temperatureService } from '../../services';
 
-const TemperatureInput = ({ onFilterChange }) => {
+const TemperatureInput = ({ onTemperatureAdded }) => {
   const [filters, setFilters] = useState({
     date: new Date().toISOString().split('T')[0],
     hour: '',
@@ -26,23 +27,48 @@ const TemperatureInput = ({ onFilterChange }) => {
   const handleFilterChange = (key, value) => {
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
-    if (onFilterChange) {
-      onFilterChange(newFilters);
-    }
   };
 
-  const handleReset = () => {
-    const resetFilters = {
-      date: new Date().toISOString().split('T')[0],
-      hour: '',
-      minute: '',
-      storageType: '냉장고',
-      temperature: '',
-      inspector: '',
-    };
-    setFilters(resetFilters);
-    if (onFilterChange) {
-      onFilterChange(resetFilters);
+  const handleSubmit = async () => {
+    // 필수 필드 검증
+    if (!filters.temperature || !filters.inspector) {
+      alert('온도와 검수자는 필수 입력 항목입니다.');
+      return;
+    }
+
+    try {
+      // 시간 조합
+      const hour = filters.hour || '00';
+      const minute = filters.minute || '00';
+      const time = `${hour}:${minute}`;
+
+      await temperatureService.create({
+        date: filters.date,
+        time,
+        storageType: filters.storageType,
+        temperature: filters.temperature,
+        inspector: filters.inspector,
+      });
+
+      alert('온도 기록이 등록되었습니다!');
+
+      // 폼 초기화
+      setFilters({
+        date: new Date().toISOString().split('T')[0],
+        hour: '',
+        minute: '',
+        storageType: '냉장고',
+        temperature: '',
+        inspector: '',
+      });
+
+      // 부모 컴포넌트에 알림
+      if (onTemperatureAdded) {
+        onTemperatureAdded();
+      }
+    } catch (error) {
+      console.error('온도 기록 등록 실패:', error);
+      alert(error.customMessage || '온도 기록 등록에 실패했습니다.');
     }
   };
 
@@ -156,11 +182,11 @@ const TemperatureInput = ({ onFilterChange }) => {
           />
         </div>
 
-        {/* 초기화 버튼 */}
+        {/* 등록 버튼 */}
         <div className='flex items-end'>
           <button
-            onClick={handleReset}
-            className='w-full rounded-xl border border-gray-300 bg-white px-6 py-2.5 font-medium text-[#000] transition-colors hover:bg-gray-50'
+            onClick={handleSubmit}
+            className='w-full rounded-xl bg-[#724323] px-6 py-2.5 font-medium text-white transition-colors hover:bg-[#5a3419]'
           >
             등록
           </button>

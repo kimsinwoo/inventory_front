@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { MapPin, Clock, Search, Package } from "lucide-react";
-
-const BASE = import.meta.env.VITE_API_BASE_URL;
+import { MapPin, Package } from "lucide-react";
+import { inventoryService } from "../../services";
 
 // 한글 ↔ 백엔드 ENUM 매핑
 const korToEnumCategory = {
@@ -32,24 +31,20 @@ export default function InventoryStatusList({ filters }) {
 
   // 초기 데이터 불러오기 (한 번만)
   useEffect(() => {
-    const ac = new AbortController();
-    setLoading(true);
-    fetch(`${BASE}/inventories`, { credentials: "include", signal: ac.signal })
-      .then((r) => r.json())
-      .then((json) => {
-        if (ac.signal.aborted) return;
-        setItems(Array.isArray(json?.data) ? json.data : []);
-      })
-      .catch((err) => {
-        if (!ac.signal.aborted) {
-          console.error("재고 데이터 불러오기 실패:", err);
-          setItems([]);
-        }
-      })
-      .finally(() => {
-        if (!ac.signal.aborted) setLoading(false);
-      });
-    return () => ac.abort();
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const response = await inventoryService.getStatus();
+        const data = response.data?.rows || response.data || response || [];
+        setItems(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("재고 데이터 불러오기 실패:", err);
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
   // 받아온 데이터를 filters 기준으로 클라이언트 측 필터링
@@ -99,14 +94,82 @@ export default function InventoryStatusList({ filters }) {
     });
   }, [items, filters]);
 
+  // 품목명 기준으로 그룹화하여 재고량 합산
+  const groupedItems = useMemo(() => {
+    if (filteredItems.length === 0) return [];
+
+    const grouped = {};
+
+    filteredItems.forEach((item) => {
+      const itemName = item?.item?.name || '알 수 없음';
+      const itemCode = item?.item?.code || '-';
+      const itemId = item?.item?.id;
+
+      // 품목명을 키로 사용
+      const key = `${itemId}_${itemName}`;
+
+      if (!grouped[key]) {
+        grouped[key] = {
+          id: key,
+          itemCode: itemCode,
+          itemName: itemName,
+          category: item?.item?.category,
+          categoryLabel: item?.item?.categoryLabel,
+          totalQuantity: 0,
+          unit: item?.unit || 'kg',
+          factories: new Set(),
+          statuses: new Set(),
+        };
+      }
+
+      // 재고량 합산
+      grouped[key].totalQuantity += Number(item?.quantity || 0);
+      
+      // 창고 수집
+      if (item?.factory?.name) {
+        grouped[key].factories.add(item.factory.name);
+      }
+      
+      // 상태 수집 (우선순위: Expired > Expiring > LowStock > Normal)
+      if (item?.status) {
+        grouped[key].statuses.add(item.status);
+      }
+    });
+
+    // Set을 배열로 변환하고 정렬
+    return Object.values(grouped).map((group) => {
+      // 상태 우선순위 결정
+      const statusPriority = ['Expired', 'Expiring', 'LowStock', 'Normal'];
+      let primaryStatus = 'Normal';
+      let primaryStatusLabel = '정상';
+      
+      for (const status of statusPriority) {
+        if (group.statuses.has(status)) {
+          primaryStatus = status;
+          primaryStatusLabel = 
+            status === 'Expired' ? '유통기한 만료' :
+            status === 'Expiring' ? '유통기한 임박' :
+            status === 'LowStock' ? '재고부족' : '정상';
+          break;
+        }
+      }
+
+      return {
+        ...group,
+        factories: Array.from(group.factories).join(', '),
+        status: primaryStatus,
+        statusLabel: primaryStatusLabel,
+      };
+    });
+  }, [filteredItems]);
+
   return (
     <div className="overflow-hidden rounded-xl bg-white shadow-sm">
       <div className="border-b border-gray-200 px-6 py-4">
         <div className="flex items-center space-x-2">
           <Package className="h-5 w-5 text-[#674529]" />
           <h3 className="text-base text-[#674529]">
-            재고 현황 ({filteredItems.length}건
-            {items.length !== filteredItems.length && ` / 전체 ${items.length}건`})
+            재고 현황 ({groupedItems.length}개 품목)
           </h3>
         </div>
       </div>
@@ -118,33 +181,28 @@ export default function InventoryStatusList({ filters }) {
               <th className="px-4 py-3 text-left text-sm font-medium">품목코드</th>
               <th className="px-4 py-3 text-left text-sm font-medium">품목명</th>
               <th className="px-4 py-3 text-left text-sm font-medium">카테고리</th>
-              <th className="px-4 py-3 text-left text-sm font-medium">재고량</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">총재고량</th>
               <th className="px-4 py-3 text-left text-sm font-medium">창고/위치</th>
-              <th className="px-4 py-3 text-left text-sm font-medium">바코드번호</th>
-              <th className="px-4 py-3 text-left text-sm font-medium">유통기한</th>
               <th className="px-4 py-3 text-left text-sm font-medium">상태</th>
-              <th className="px-4 py-3 text-left text-sm font-medium">이력</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
               <tr>
-                <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={9}>
+                <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={6}>
                   불러오는 중…
                 </td>
               </tr>
-            ) : filteredItems.length === 0 ? (
+            ) : groupedItems.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={9}>
+                <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={6}>
                   {items.length === 0 
                     ? '데이터가 없습니다.' 
                     : '필터 조건에 맞는 재고가 없습니다.'}
                 </td>
               </tr>
             ) : (
-              filteredItems.map((d) => {
-                const days = Number(d?.daysLeft ?? 0);
-                const daysLabel = days >= 0 ? `- ${days}일` : `+ ${Math.abs(days)}일`;
+              groupedItems.map((d) => {
                 const badge =
                   d?.status === "Normal"
                     ? "bg-green-100 text-green-700"
@@ -156,30 +214,22 @@ export default function InventoryStatusList({ filters }) {
 
                 return (
                   <tr key={d.id} className="transition-colors hover:bg-gray-50/50">
-                    <td className="px-4 py-4 text-sm font-medium text-gray-900">{d?.item?.code}</td>
-                    <td className="px-4 py-4 text-sm text-gray-900">{d?.item?.name}</td>
-                    <td className="px-4 py-4 text-sm text-gray-700">{d?.item?.categoryLabel}</td>
-                    <td className="px-4 py-4 text-sm font-medium text-gray-900">{`${d?.quantity} ${d?.unit}`}</td>
+                    <td className="px-4 py-4 text-sm font-medium text-gray-900">{d.itemCode}</td>
+                    <td className="px-4 py-4 text-sm text-gray-900">{d.itemName}</td>
+                    <td className="px-4 py-4 text-sm text-gray-700">{d.categoryLabel || '-'}</td>
+                    <td className="px-4 py-4 text-sm font-medium text-gray-900">
+                      {`${d.totalQuantity.toFixed(2)} ${d.unit}`}
+                    </td>
                     <td className="px-4 py-4">
                       <div className="flex items-center space-x-1 text-sm text-gray-700">
                         <MapPin className="h-4 w-4 text-[#674529]" />
-                        <span>{d?.factory ? d.factory.code ?? d.factory.name : "-"}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-700">{d?.lotNumber}</td>
-                    <td className="px-4 py-4">
-                      <div className="flex items-center space-x-1 text-sm text-gray-700">
-                        <Clock className="h-4 w-4 text-gray-500" />
-                        <span>{d?.expirationDate} {daysLabel}</span>
+                        <span className="line-clamp-2">{d.factories || '-'}</span>
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      <span className={`inline-flex rounded px-3 py-1 text-xs font-medium ${badge}`}>{d?.statusLabel}</span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <button className="text-gray-500 transition-colors hover:text-[#674529]">
-                        <Search className="h-5 w-5 text-[#674529]" />
-                      </button>
+                      <span className={`inline-flex rounded px-3 py-1 text-xs font-medium ${badge}`}>
+                        {d.statusLabel}
+                      </span>
                     </td>
                   </tr>
                 );

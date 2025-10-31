@@ -1,39 +1,31 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { temperatureService } from '../../services';
 
-const TemperatureList = ({ filters }) => {
-  // 임시 데이터 (실제로는 API에서 가져올 데이터)
-  const [temperatureData] = useState([
-    {
-      id: 1,
-      time: '00:15',
-      storageType: '냉장고',
-      temperature: '3°C',
-      inspector: '임직원',
-      registeredAt: '2025-10-18 00:20',
-    },
-    {
-      id: 2,
-      time: '06:30',
-      storageType: '냉동고',
-      temperature: '-18°C',
-      inspector: '김철수',
-      registeredAt: '2025-10-23 06:35',
-    },
-    {
-      id: 3,
-      time: '12:00',
-      storageType: '상온',
-      temperature: '22°C',
-      inspector: '이영희',
-      registeredAt: '2025-10-23 12:05',
-    },
-    // 추가 데이터는 여기에...
-  ]);
-
+const TemperatureList = ({ refreshTrigger }) => {
+  const [temperatureData, setTemperatureData] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [currentDate, setCurrentDate] = useState(
     new Date().toISOString().split('T')[0]
   );
+
+  useEffect(() => {
+    fetchTemperatureData();
+  }, [currentDate, refreshTrigger]);
+
+  const fetchTemperatureData = async () => {
+    setLoading(true);
+    try {
+      const response = await temperatureService.getAll({ date: currentDate });
+      const data = response.data || response || [];
+      setTemperatureData(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('온도 데이터 조회 실패:', error);
+      setTemperatureData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handlePreviousDay = () => {
     const date = new Date(currentDate);
