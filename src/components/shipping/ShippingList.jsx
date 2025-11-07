@@ -1,7 +1,56 @@
-import { Package, ChevronRight, ChevronLeft } from 'lucide-react';
-import { useState } from 'react';
+import { Package, ChevronRight, ChevronLeft, Tag, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { labelAPI } from '../../api';
 
 const ShippingList = () => {
+  const navigate = useNavigate();
+  const [savedLabels, setSavedLabels] = useState([]);
+  const [loadingLabels, setLoadingLabels] = useState(false);
+  const [showLabels, setShowLabels] = useState(false);
+
+  // 저장된 라벨 목록 가져오기
+  useEffect(() => {
+    if (showLabels) {
+      fetchSavedLabels();
+    }
+  }, [showLabels]);
+
+  const fetchSavedLabels = async () => {
+    try {
+      setLoadingLabels(true);
+      const response = await labelAPI.getAllLabels({ page: 1, limit: 100 });
+      const rows = Array.isArray(response.data)
+        ? response.data
+        : response.data?.data?.rows || response.data?.rows || [];
+      setSavedLabels(rows);
+    } catch (error) {
+      console.error('저장된 라벨 목록 가져오기 실패:', error);
+      setSavedLabels([]);
+    } finally {
+      setLoadingLabels(false);
+    }
+  };
+
+  // 라벨 선택 시 Label 페이지로 이동하고 데이터 전달
+  const handleSelectLabel = (label) => {
+    // localStorage에 라벨 데이터 저장
+    const labelData = {
+      itemId: label.item_id || label.itemId,
+      productName: label.item_name || label.productName || label.itemName,
+      storageCondition: label.storage_condition || label.storageCondition || '냉동',
+      registrationNumber: label.registration_number || label.registrationNumber || '',
+      categoryAndForm: label.category_and_form || label.categoryAndForm || '',
+      ingredients: label.ingredients || '',
+      rawMaterials: label.raw_materials || label.rawMaterials || '',
+      actualWeight: label.actual_weight || label.actualWeight || '',
+      labelType: label.label_type || label.labelType || 'large',
+    };
+    
+    localStorage.setItem('selectedLabelData', JSON.stringify(labelData));
+    navigate('/label');
+  };
+
   // 샘플 데이터
   const [shippingData] = useState([
     {
@@ -70,13 +119,73 @@ const ShippingList = () => {
     <div className="bg-white rounded-lg shadow-sm">
       {/* 헤더 */}
       <div className="border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center space-x-2">
-          <Package className="h-5 w-5 text-[#674529]" />
-          <h3 className="text-base font-semibold text-[#674529]">
-            배송 목록 ({shippingData.length}건)
-          </h3>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Package className="h-5 w-5 text-[#674529]" />
+            <h3 className="text-base font-semibold text-[#674529]">
+              배송 목록 ({shippingData.length}건)
+            </h3>
+          </div>
+          <button
+            onClick={() => setShowLabels(!showLabels)}
+            className="flex items-center space-x-2 px-4 py-2 bg-[#674529] text-white rounded-lg hover:bg-[#553821] transition-colors text-sm font-medium"
+          >
+            <Tag className="h-4 w-4" />
+            <span>{showLabels ? '라벨 목록 숨기기' : '저장된 라벨 보기'}</span>
+          </button>
         </div>
       </div>
+
+      {/* 저장된 라벨 목록 */}
+      {showLabels && (
+        <div className="border-b border-gray-200 px-6 py-4 bg-gray-50">
+          <div className="mb-3">
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">저장된 라벨 목록</h4>
+            {loadingLabels ? (
+              <div className="text-sm text-gray-500">로딩 중...</div>
+            ) : savedLabels.length === 0 ? (
+              <div className="text-sm text-gray-500">저장된 라벨이 없습니다.</div>
+            ) : (
+              <div className="max-h-60 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">제품명</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">보관조건</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">등록번호</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">작업</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 bg-white">
+                    {savedLabels.map((label) => (
+                      <tr key={label.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 text-gray-900">
+                          {label.item_name || label.productName || label.itemName || '-'}
+                        </td>
+                        <td className="px-3 py-2 text-gray-700">
+                          {label.storage_condition || label.storageCondition || '냉동'}
+                        </td>
+                        <td className="px-3 py-2 text-gray-700">
+                          {label.registration_number || label.registrationNumber || '-'}
+                        </td>
+                        <td className="px-3 py-2">
+                          <button
+                            onClick={() => handleSelectLabel(label)}
+                            className="flex items-center space-x-1 px-3 py-1 bg-[#674529] text-white rounded-lg hover:bg-[#553821] transition-colors text-xs font-medium"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            <span>선택</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 테이블 */}
       <div className="overflow-x-auto">

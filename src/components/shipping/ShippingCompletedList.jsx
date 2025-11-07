@@ -45,8 +45,11 @@ const ShippingCompletedList = ({ completedData, onCancel, onLabelPrint }) => {
             </tr>
           </thead>
           <tbody className='divide-y divide-gray-200'>
-            {completedData.map((item) => (
-              <tr key={item.id}>
+            {completedData.map((item, index) => {
+              // 고유 키 생성: id가 있으면 id 사용, 없으면 itemCode와 index 조합
+              const uniqueKey = item.id || `${item.itemCode || 'item'}_${index}`;
+              return (
+              <tr key={uniqueKey}>
                 <td className='px-4 py-4 text-sm font-medium text-gray-900'>
                   {item.itemCode}
                 </td>
@@ -81,7 +84,8 @@ const ShippingCompletedList = ({ completedData, onCancel, onLabelPrint }) => {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

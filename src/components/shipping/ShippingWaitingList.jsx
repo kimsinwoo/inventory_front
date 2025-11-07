@@ -16,8 +16,10 @@ const ShippingWaitingList = ({ waitingData, onAddShipping, onShip }) => {
     }));
   };
 
-  const handleShip = (item) => {
-    const inputs = shippingInputs[item.id] || {};
+  const handleShip = (item, uniqueKey) => {
+    // uniqueKey가 전달되지 않으면 item.id 또는 고유 키 생성
+    const key = uniqueKey || item.id || `${item.itemCode || 'item'}_${waitingData.indexOf(item)}`;
+    const inputs = shippingInputs[key] || {};
     const shippedQuantity = inputs.shippedQuantity || '';
     const unitCount = inputs.unitCount || '1'; // 기본값 1
 
@@ -33,10 +35,11 @@ const ShippingWaitingList = ({ waitingData, onAddShipping, onShip }) => {
     });
 
     // 입력값 초기화
-    setShippingInputs((prev) => ({
-      ...prev,
-      [item.id]: { shippedQuantity: '', unitCount: '' },
-    }));
+    setShippingInputs((prev) => {
+      const newInputs = { ...prev };
+      delete newInputs[key];
+      return newInputs;
+    });
   };
 
   return (
@@ -95,61 +98,66 @@ const ShippingWaitingList = ({ waitingData, onAddShipping, onShip }) => {
             </tr>
           </thead>
           <tbody className='divide-y divide-gray-200'>
-            {waitingData.map((item) => (
-              <tr key={item.id}>
-                <td className='px-4 py-4 text-sm font-medium text-gray-900'>
-                  {item.itemCode}
-                </td>
-                <td className='px-4 py-4 text-sm text-gray-900'>
-                  {item.itemName}
-                </td>
-                <td className='px-4 py-4 text-sm text-gray-700'>
-                  {item.expectedQuantity}
-                </td>
-                <td className='px-4 py-4'>
-                  <input
-                    type='number'
-                    placeholder='10'
-                    value={shippingInputs[item.id]?.shippedQuantity || ''}
-                    onChange={(e) =>
-                      handleInputChange(item.id, 'shippedQuantity', e.target.value)
-                    }
-                    className='w-20 rounded border border-gray-300 px-2 py-1 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
-                  />
-                </td>
-                <td className='px-4 py-4'>
-                  <input
-                    type='number'
-                    placeholder='1'
-                    value={shippingInputs[item.id]?.unitCount ?? ''}
-                    onChange={(e) =>
-                      handleInputChange(item.id, 'unitCount', e.target.value)
-                    }
-                    className='w-20 rounded border border-gray-300 px-2 py-1 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
-                  />
-                </td>
-                <td className='px-4 py-4'>
-                  <div className='flex items-center space-x-1 text-sm text-gray-700'>
-                    <Calendar className='h-4 w-4 text-gray-500' />
-                    <span>{item.expectedDate}</span>
-                  </div>
-                </td>
-                <td className='flex w-full items-center gap-2 px-4 py-4'>
-                  <button
-                    onClick={() => handleShip(item)}
-                    className='rounded-xl bg-[#674529] hover:bg-[#553821] px-4 py-2 text-sm font-medium text-white transition-colors'
-                  >
-                    출고
-                  </button>
-                  <button
-                    onClick={() => setIsModalOpen(true)}
-                    className='rounded-xl border border-[#674529] bg-white px-4 py-2 text-sm font-medium text-[#674529] transition-colors hover:bg-gray-50'
-                  >
-                    배송 정보
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {waitingData.map((item, index) => {
+              // 고유 키 생성: id가 있으면 id 사용, 없으면 itemCode와 index 조합
+              const uniqueKey = item.id || `${item.itemCode || 'item'}_${index}`;
+              
+              return (
+                <tr key={uniqueKey}>
+                  <td className='px-4 py-4 text-sm font-medium text-gray-900'>
+                    {item.itemCode}
+                  </td>
+                  <td className='px-4 py-4 text-sm text-gray-900'>
+                    {item.itemName}
+                  </td>
+                  <td className='px-4 py-4 text-sm text-gray-700'>
+                    {item.expectedQuantity}
+                  </td>
+                  <td className='px-4 py-4'>
+                    <input
+                      type='number'
+                      placeholder='10'
+                      value={shippingInputs[uniqueKey]?.shippedQuantity || ''}
+                      onChange={(e) =>
+                        handleInputChange(uniqueKey, 'shippedQuantity', e.target.value)
+                      }
+                      className='w-20 rounded border border-gray-300 px-2 py-1 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                    />
+                  </td>
+                  <td className='px-4 py-4'>
+                    <input
+                      type='number'
+                      placeholder='1'
+                      value={shippingInputs[uniqueKey]?.unitCount ?? ''}
+                      onChange={(e) =>
+                        handleInputChange(uniqueKey, 'unitCount', e.target.value)
+                      }
+                      className='w-20 rounded border border-gray-300 px-2 py-1 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                    />
+                  </td>
+                  <td className='px-4 py-4'>
+                    <div className='flex items-center space-x-1 text-sm text-gray-700'>
+                      <Calendar className='h-4 w-4 text-gray-500' />
+                      <span>{item.expectedDate}</span>
+                    </div>
+                  </td>
+                  <td className='flex w-full items-center gap-2 px-4 py-4'>
+                    <button
+                      onClick={() => handleShip(item, uniqueKey)}
+                      className='rounded-xl bg-[#674529] hover:bg-[#553821] px-4 py-2 text-sm font-medium text-white transition-colors'
+                    >
+                      출고
+                    </button>
+                    <button
+                      onClick={() => setIsModalOpen(true)}
+                      className='rounded-xl border border-[#674529] bg-white px-4 py-2 text-sm font-medium text-[#674529] transition-colors hover:bg-gray-50'
+                    >
+                      배송 정보
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

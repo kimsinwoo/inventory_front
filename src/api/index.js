@@ -123,6 +123,17 @@ export const receivingAPI = {
   printLabel: (id) => apiClient.get(`/receiving/${id}/label`),
 };
 
+// ==================== 라벨 관리 API ====================
+export const labelAPI = {
+  getPrinters: () => apiClient.get('/barcode/printers'),
+  saveTemplate: (templateData) => apiClient.post('/barcode/print-label', templateData, { timeout: 60000 }),
+  getAllLabels: (params) => apiClient.get('/barcode/labels', { params }),
+  getLabelsByBarcode: (barcode) => apiClient.get(`/barcode/labels/barcode/${barcode}`),
+  getLabelsByInventory: (inventoryId) => apiClient.get(`/barcode/labels/inventory/${inventoryId}`),
+  printSavedLabel: (data) => apiClient.post('/barcode/print-saved-label', data),
+  getLabelTemplate: (registrationNumber) => apiClient.get(`/barcode/labeltemplates/registration/${registrationNumber}`),
+};
+
 // ==================== 전자 결재 API ====================
 export const approvalAPI = {
   getPendingDocuments: (params) => apiClient.get('/approvals/pending', { params }),
