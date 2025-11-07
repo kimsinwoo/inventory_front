@@ -132,6 +132,8 @@ export const labelAPI = {
   getLabelsByInventory: (inventoryId) => apiClient.get(`/barcode/labels/inventory/${inventoryId}`),
   printSavedLabel: (data) => apiClient.post('/barcode/print-saved-label', data),
   getLabelTemplate: (registrationNumber) => apiClient.get(`/barcode/labeltemplates/registration/${registrationNumber}`),
+  generateBarcode: (barcodeNumber) => apiClient.get(`/barcode/generate/${barcodeNumber}`, { responseType: 'blob' }),
+  generateIssueLabel: (data) => apiClient.post('/barcode/generate-issue-label', data),
 };
 
 // ==================== 전자 결재 API ====================

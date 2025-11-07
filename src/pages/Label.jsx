@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Printer, Package, Snowflake, Microwave } from 'lucide-react';
 import { labelAPI, itemsAPI } from '../api';
 import SavedLabelList from '../components/label/SavedLabelList';
@@ -30,31 +30,48 @@ const Label = () => {
   const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const printRef = useRef();
+  const abortControllerRef = useRef(null); // API 요청 취소용
 
-  // Finished 카테고리 품목 목록 가져오기
+  // Finished 카테고리 품목 목록 가져오기 (cleanup 추가)
   useEffect(() => {
+    let isMounted = true;
+
     const fetchFinishedItems = async () => {
       try {
         setIsLoadingItems(true);
         const response = await itemsAPI.getItems({ category: 'Finished', page: 1, limit: 1000 });
-        const items = Array.isArray(response.data) 
-          ? response.data 
-          : response.data?.data || response.data?.rows || [];
-        // 클라이언트 측에서도 Finished 카테고리만 필터링
-        const finishedOnly = items.filter(item => {
-          const category = item.category || item.Category || item.categoryName || '';
-          return category === 'Finished' || category === '완제품';
-        });
-        setFinishedItems(finishedOnly);
+        if (isMounted) {
+          const items = Array.isArray(response.data) 
+            ? response.data 
+            : response.data?.data || response.data?.rows || [];
+          // 클라이언트 측에서도 Finished 카테고리만 필터링
+          const finishedOnly = items.filter(item => {
+            const category = item.category || item.Category || item.categoryName || '';
+            return category === 'Finished' || category === '완제품';
+          });
+          setFinishedItems(finishedOnly);
+        }
       } catch (error) {
-        console.error('품목 목록 가져오기 실패:', error);
-        alert('품목 목록을 불러올 수 없습니다.');
+        if (isMounted && error.name !== 'AbortError') {
+          console.error('품목 목록 가져오기 실패:', error);
+          alert('품목 목록을 불러올 수 없습니다.');
+        }
       } finally {
-        setIsLoadingItems(false);
+        if (isMounted) {
+          setIsLoadingItems(false);
+        }
       }
     };
 
     fetchFinishedItems();
+
+    // Cleanup 함수
+    return () => {
+      isMounted = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, []);
 
   // localStorage에서 선택된 라벨 데이터 로드
@@ -104,8 +121,8 @@ const Label = () => {
     }
   }, []);
 
-  // 제품 선택 시 제품명과 등록번호 자동 설정
-  const handleItemChange = (itemId) => {
+  // 제품 선택 시 제품명과 등록번호 자동 설정 (useCallback으로 최적화)
+  const handleItemChange = useCallback((itemId) => {
     setSelectedItemId(itemId);
     const selectedItem = finishedItems.find(item => item.id === parseInt(itemId) || item.id === itemId);
     if (selectedItem) {
@@ -115,39 +132,74 @@ const Label = () => {
       setProductName('');
       setRegistrationNumber('');
     }
-  };
+  }, [finishedItems]);
 
-  // 프린터 목록 가져오기
+  // 프린터 목록 가져오기 (cleanup 추가)
   useEffect(() => {
+    let isMounted = true;
+
     const fetchPrinters = async () => {
       try {
         setIsLoadingPrinters(true);
         const response = await labelAPI.getPrinters();
-        // 응답 형식에 따라 조정 (배열이거나 data 속성에 배열이 있을 수 있음)
-        const printerList = Array.isArray(response.data) 
-          ? response.data 
-          : response.data?.data || response.data?.printers || [];
-        setPrinters(printerList);
-        // 첫 번째 프린터를 기본 선택
-        if (printerList.length > 0) {
-          const firstPrinter = typeof printerList[0] === 'string' 
-            ? printerList[0] 
-            : printerList[0].name || printerList[0].id;
-          setSelectedPrinter(firstPrinter);
+        if (isMounted) {
+          // 응답 형식에 따라 조정 (배열이거나 data 속성에 배열이 있을 수 있음)
+          const printerList = Array.isArray(response.data) 
+            ? response.data 
+            : response.data?.data || response.data?.printers || [];
+          setPrinters(printerList);
+          // 첫 번째 프린터를 기본 선택
+          if (printerList.length > 0) {
+            const firstPrinter = typeof printerList[0] === 'string' 
+              ? printerList[0] 
+              : printerList[0].name || printerList[0].id;
+            setSelectedPrinter(firstPrinter);
+          }
         }
       } catch (error) {
-        console.error('프린터 목록 가져오기 실패:', error);
-        alert('프린터 목록을 불러올 수 없습니다.');
+        if (isMounted && error.name !== 'AbortError') {
+          console.error('프린터 목록 가져오기 실패:', error);
+          alert('프린터 목록을 불러올 수 없습니다.');
+        }
       } finally {
-        setIsLoadingPrinters(false);
+        if (isMounted) {
+          setIsLoadingPrinters(false);
+        }
       }
     };
 
     fetchPrinters();
+
+    // Cleanup 함수
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  const buildLargeLabelHtml = () => {
-    const barcodeImage = generateBarcode();
+  // 바코드 이미지 생성 (useMemo로 최적화)
+  const barcodeImage = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 60;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#000';
+    const barcode = '8800278470831';
+    let x = 10;
+
+    for (let i = 0; i < barcode.length; i++) {
+      const digit = parseInt(barcode[i]);
+      const width = digit % 2 === 0 ? 8 : 12;
+      if (i % 2 === 0) {
+        ctx.fillRect(x, 5, width, 45);
+      }
+      x += width + 2;
+    }
+
+    return canvas.toDataURL();
+  }, []); // 한 번만 생성
+
+  const buildLargeLabelHtml = useCallback(() => {
     const safeProductName = escapeHtml(productName || '제품명');
     const safeStorage = escapeHtml(storageCondition || '냉동');
     const safeRegistration = escapeHtml(registrationNumber || '');
@@ -184,7 +236,7 @@ const Label = () => {
     </div>
   </div>
 </div>`;
-  };
+  }, [productName, storageCondition, registrationNumber, categoryAndForm, ingredients, rawMaterials, actualWeight, barcodeImage]);
 
   const handleSaveTemplate = async () => {
     try {

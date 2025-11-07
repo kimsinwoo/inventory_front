@@ -11,7 +11,7 @@ import ShippingConfirmModal from '../components/shipping/ShippingConfirmModal';
 import LabelPrintModal from '../components/receiving/LabelPrintModal';
 import AlertModal from '../components/common/AlertModal';
 import { getItemByName } from '../data/items';
-import { shippingAPI, inventoryAPI } from '../api';
+import { shippingAPI, inventoryAPI, receivingAPI } from '../api';
 
 const Receiving = ({ subPage = 'nav1' }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -191,21 +191,23 @@ const Receiving = ({ subPage = 'nav1' }) => {
   };
 
   // 대기 목록 추가
-  const handleSubmitReceiving = (formData) => {
-    const itemInfo = getItemByName(formData.itemName);
-
-    const newWaitingItem = {
-      id: Date.now(),
-      itemCode: formData.itemCode,
-      itemName: formData.itemName,
-      expectedQuantity: `${formData.expectedQuantity}${formData.unit}`,
-      expectedDate: formData.expectedDate,
-      supplier: itemInfo?.supplier || '공급업체',
-    };
-
-    setWaitingData([...waitingData, newWaitingItem]);
-    showAlert('입고 대기 목록에 추가되었습니다.', 'success');
-    setIsModalOpen(false);
+  const handleSubmitReceiving = async (formData) => {
+    try {
+      // 백엔드 API를 통해 입고 대기 항목 저장
+      await receivingAPI.createReceiving(formData);
+      
+      showAlert('입고 대기 목록에 추가되었습니다.', 'success');
+      setIsModalOpen(false);
+      
+      // 목록 새로고침 (입고 대기 목록 로드 함수가 있다면 호출)
+      // loadReceivingWaitingList(); // 필요시 구현
+    } catch (error) {
+      console.error('입고 목록 추가 실패:', error);
+      showAlert(
+        error.response?.data?.message || '입고 목록 추가에 실패했습니다.',
+        'error'
+      );
+    }
   };
 
   // 입고 버튼 클릭 시 확인 모달 열기

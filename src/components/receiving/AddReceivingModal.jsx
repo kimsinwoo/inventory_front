@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
-import { useState } from 'react';
-import { items, getItemByName } from '../../data/items';
+import { useState, useEffect } from 'react';
+import { itemsAPI } from '../../api';
 
 const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
@@ -9,22 +9,67 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
     unit: '',
     expectedQuantity: '',
     expectedDate: new Date().toISOString().split('T')[0],
+    selectedItemId: '', // 선택된 품목의 고유 식별자
   });
+  const [itemsList, setItemsList] = useState([]);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
+
+  // 품목 목록 로드
+  useEffect(() => {
+    if (isOpen) {
+      loadItems();
+    }
+  }, [isOpen]);
+
+  const loadItems = async () => {
+    try {
+      setIsLoadingItems(true);
+      const response = await itemsAPI.getItems({});
+      const data = response.data?.data || response.data || [];
+      setItemsList(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('품목 목록 로드 실패:', error);
+      setItemsList([]);
+    } finally {
+      setIsLoadingItems(false);
+    }
+  };
 
   const handleItemChange = (e) => {
-    const selectedItemName = e.target.value;
-    const selectedItem = getItemByName(selectedItemName);
-
-    if (selectedItem) {
+    const selectedValue = e.target.value;
+    
+    if (!selectedValue) {
       setFormData((prev) => ({
         ...prev,
-        itemName: selectedItem.name,
-        itemCode: selectedItem.code,
-        unit: selectedItem.unit,
+        selectedItemId: '',
+        itemName: '',
+        itemCode: '',
+        unit: '',
+      }));
+      return;
+    }
+
+    // itemsList에서 찾기 (백엔드 데이터)
+    const selectedItem = itemsList.find(item => {
+      const itemId = item.id?.toString();
+      const itemCode = item.code || item.itemCode;
+      const itemName = item.name || item.itemName;
+      return itemId === selectedValue || itemCode === selectedValue || itemName === selectedValue;
+    });
+
+    if (selectedItem) {
+      const itemId = selectedItem.id?.toString() || selectedItem.code || selectedItem.itemCode || selectedItem.name || selectedItem.itemName || selectedValue;
+      setFormData((prev) => ({
+        ...prev,
+        selectedItemId: itemId,
+        itemName: selectedItem.name || selectedItem.itemName || '',
+        itemCode: selectedItem.code || selectedItem.itemCode || '',
+        unit: selectedItem.unit || 'Kg',
       }));
     } else {
       setFormData((prev) => ({
         ...prev,
+        selectedItemId: '',
         itemName: '',
         itemCode: '',
         unit: '',
@@ -40,17 +85,35 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSubmit(formData);
-    // 폼 초기화
-    setFormData({
-      itemName: '',
-      itemCode: '',
-      unit: '',
-      expectedQuantity: '',
-      expectedDate: new Date().toISOString().split('T')[0],
-    });
+    
+    try {
+      // 백엔드 API를 통해 입고 대기 항목 저장
+      const receivingData = {
+        itemCode: formData.itemCode,
+        itemName: formData.itemName,
+        expectedQuantity: parseFloat(formData.expectedQuantity),
+        unit: formData.unit,
+        expectedDate: formData.expectedDate,
+        status: 'pending', // 대기 상태
+      };
+
+      await onSubmit(receivingData);
+      
+      // 폼 초기화
+      setFormData({
+        itemName: '',
+        itemCode: '',
+        unit: '',
+        expectedQuantity: '',
+        expectedDate: new Date().toISOString().split('T')[0],
+        selectedItemId: '',
+      });
+    } catch (error) {
+      console.error('입고 목록 추가 실패:', error);
+      alert(error.response?.data?.message || '입고 목록 추가에 실패했습니다.');
+    }
   };
 
   if (!isOpen) return null;
@@ -82,17 +145,29 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
                 </label>
                 <select
                   name='itemName'
-                  value={formData.itemName}
+                  value={formData.selectedItemId}
                   onChange={handleItemChange}
                   required
-                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                  disabled={isLoadingItems}
+                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529] disabled:bg-gray-100 disabled:cursor-not-allowed'
                 >
-                  <option value=''>품목을 선택하세요</option>
-                  {items.map((item) => (
-                    <option key={item.code} value={item.name}>
-                      {item.name}
-                    </option>
-                  ))}
+                  <option value=''>
+                    {isLoadingItems ? '품목 목록 로딩 중...' : '품목을 선택하세요'}
+                  </option>
+                  {itemsList.map((item) => {
+                    // 백엔드 데이터: id가 있으면 id를 value로, 없으면 code 또는 name 사용
+                    const itemValue = item.id?.toString() || item.code || item.itemCode || item.name || item.itemName;
+                    const itemName = item.name || item.itemName || '';
+                    const itemCode = item.code || item.itemCode || '';
+                    return (
+                      <option 
+                        key={item.id || item.code || item.itemCode || item.name} 
+                        value={itemValue}
+                      >
+                        {itemName} {itemCode ? `(${itemCode})` : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

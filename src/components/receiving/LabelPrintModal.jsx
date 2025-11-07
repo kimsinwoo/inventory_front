@@ -1,5 +1,5 @@
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { X, Snowflake, Microwave } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
 import { labelAPI, itemsAPI } from '../../api';
 import usePdfDownload from '../common/usePdfDownload';
 
@@ -17,114 +17,158 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
   const [calculatedExpiryDate, setCalculatedExpiryDate] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const previewRef = useRef(null);
+  const abortControllerRef = useRef(null); // API 요청 취소용
   const { downloadPdf, isLoading: isPdfLoading } = usePdfDownload();
+  const [barcodeImage, setBarcodeImage] = useState(null);
+  const [isLoadingBarcode, setIsLoadingBarcode] = useState(false);
+  const [barcodeNumber, setBarcodeNumber] = useState(null); // 실제 바코드 번호
 
-  // 제품명은 itemData에서 고정으로 사용
-  const productName = itemData?.itemName || itemData?.name || '';
+  // 제품명은 itemData에서 고정으로 사용 (useMemo로 최적화)
+  const productName = useMemo(() => itemData?.itemName || itemData?.name || '', [itemData?.itemName, itemData?.name]);
 
-  // 아이템 상세 정보 가져오기
+  // 아이템 상세 정보 가져오기 (cleanup 추가)
   useEffect(() => {
     if (!isOpen || !itemData?.itemCode) return;
+
+    // 이전 요청 취소
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // 새로운 AbortController 생성
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+    let isMounted = true;
+
     const fetchItemDetail = async () => {
       try {
         const response = await itemsAPI.getItemByCode(itemData.itemCode);
-        const item = response.data?.data || response.data || {};
-        setItemDetail(item);
+        if (!signal.aborted && isMounted) {
+          const item = response.data?.data || response.data || {};
+          setItemDetail(item);
+        }
       } catch (error) {
-        console.error('아이템 정보 가져오기 실패:', error);
+        if (!signal.aborted && isMounted && error.name !== 'AbortError') {
+          console.error('아이템 정보 가져오기 실패:', error);
+        }
       }
     };
+    
     fetchItemDetail();
+
+    // Cleanup 함수
+    return () => {
+      isMounted = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [isOpen, itemData?.itemCode]);
 
-  // 라벨 템플릿 가져오기 (item.code와 registration_number 매칭)
+  // 라벨 템플릿 가져오기 (cleanup 추가)
   useEffect(() => {
     if (!isOpen || !itemData?.itemCode) return;
+
+    // 이전 요청 취소
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // 새로운 AbortController 생성
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+    let isMounted = true;
+
     const fetchLabelTemplate = async () => {
       try {
-        // item.code를 registration_number로 사용하여 labeltemplate 가져오기
         const response = await labelAPI.getLabelTemplate(itemData.itemCode);
-        const template = response.data?.data || response.data || null;
-        setLabelTemplate(template);
+        if (!signal.aborted && isMounted) {
+          const template = response.data?.data || response.data || null;
+          setLabelTemplate(template);
+        }
       } catch (error) {
-        console.error('라벨 템플릿 가져오기 실패:', error);
-        // 에러가 발생해도 계속 진행 (템플릿이 없을 수 있음)
-        setLabelTemplate(null);
+        if (!signal.aborted && isMounted && error.name !== 'AbortError') {
+          console.error('라벨 템플릿 가져오기 실패:', error);
+          setLabelTemplate(null);
+        }
       }
     };
+    
     fetchLabelTemplate();
+
+    // Cleanup 함수
+    return () => {
+      isMounted = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [isOpen, itemData?.itemCode]);
 
-  // 프린터 목록 가져오기
+  // 프린터 목록 가져오기 (cleanup 추가)
   useEffect(() => {
     if (!isOpen) return;
+
+    let isMounted = true;
+
     const fetchPrinters = async () => {
       try {
         setIsLoadingPrinters(true);
         const response = await labelAPI.getPrinters();
-        const printerList = Array.isArray(response.data)
-          ? response.data
-          : response.data?.data || response.data?.printers || [];
-        setPrinters(printerList);
-        if (printerList.length > 0) {
-          const firstPrinter = typeof printerList[0] === 'string'
-            ? printerList[0]
-            : printerList[0].name || printerList[0].id;
-          setSelectedPrinter(firstPrinter);
+        if (isMounted) {
+          const printerList = Array.isArray(response.data)
+            ? response.data
+            : response.data?.data || response.data?.printers || [];
+          setPrinters(printerList);
+          if (printerList.length > 0) {
+            const firstPrinter = typeof printerList[0] === 'string'
+              ? printerList[0]
+              : printerList[0].name || printerList[0].id;
+            setSelectedPrinter(firstPrinter);
+          }
         }
       } catch (error) {
-        console.error('프린터 목록 가져오기 실패:', error);
+        if (isMounted && error.name !== 'AbortError') {
+          console.error('프린터 목록 가져오기 실패:', error);
+        }
       } finally {
-        setIsLoadingPrinters(false);
+        if (isMounted) {
+          setIsLoadingPrinters(false);
+        }
       }
     };
+    
     fetchPrinters();
+
+    // Cleanup 함수
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen]);
 
-  // 제조일자 변경 시 유통기한 자동 계산
+  // 제조일자 변경 시 유통기한 자동 계산 (최적화: 불필요한 로그 제거)
   useEffect(() => {
     if (!manufactureDate) {
       setCalculatedExpiryDate('');
       return;
     }
 
-    // labelTemplate에서 유통기한 가져오기 (우선순위)
-    // 유통기한 필드명: expiration_date, expiry_date, shelf_life 등 가능
-    const expiryDaysStr = labelTemplate?.expiration_date || 
-                         labelTemplate?.expiry_date || 
-                         labelTemplate?.shelf_life ||
-                         labelTemplate?.expiration_days ||
-                         labelTemplate?.expiry_days ||
+    // 유통기한 가져오기 (우선순위: labelTemplate.item.expiration_date → itemDetail.expiration_date)
+    const expiryDaysStr = labelTemplate?.item?.expiration_date || 
                          itemDetail?.expiration_date || 
                          itemDetail?.expiry_date || 
                          '';
 
-    console.log('유통기한 계산 디버그:', {
-      manufactureDate,
-      labelTemplateKeys: labelTemplate ? Object.keys(labelTemplate) : null,
-      labelTemplateExpiration: labelTemplate?.expiration_date,
-      labelTemplateExpiry: labelTemplate?.expiry_date,
-      labelTemplateShelfLife: labelTemplate?.shelf_life,
-      itemDetailExpiration: itemDetail?.expiration_date,
-      itemDetailExpiry: itemDetail?.expiry_date,
-      expiryDaysStr
-    });
-
     if (!expiryDaysStr || expiryDaysStr === '') {
-      console.log('유통기한 정보 없음 - labelTemplate:', labelTemplate, 'itemDetail:', itemDetail);
       setCalculatedExpiryDate('');
       return;
     }
 
-    // 숫자 형식으로 변환 (예: "30", "365" 등)
-    // 문자열에서 숫자만 추출 (예: "30일" -> 30)
+    // 숫자 형식으로 변환
     const expiryDaysMatch = expiryDaysStr.toString().trim().match(/\d+/);
     const expiryDays = expiryDaysMatch ? parseInt(expiryDaysMatch[0]) : parseInt(expiryDaysStr.toString().trim());
     
-    console.log('유통기한 일수:', expiryDays, '원본:', expiryDaysStr);
-    
     if (isNaN(expiryDays) || expiryDays <= 0) {
-      console.log('유통기한 일수 유효하지 않음:', expiryDays);
       setCalculatedExpiryDate('');
       return;
     }
@@ -132,7 +176,6 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
     try {
       const manufacture = new Date(manufactureDate);
       if (isNaN(manufacture.getTime())) {
-        console.log('제조일자 유효하지 않음:', manufactureDate);
         setCalculatedExpiryDate('');
         return;
       }
@@ -141,7 +184,6 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
       const expiry = new Date(manufacture);
       expiry.setDate(expiry.getDate() + expiryDays);
       const calculatedDate = expiry.toISOString().split('T')[0];
-      console.log('계산된 유통기한:', calculatedDate, '제조일자:', manufactureDate, '유통기한 일수:', expiryDays);
       setCalculatedExpiryDate(calculatedDate);
     } catch (error) {
       console.error('유통기한 계산 실패:', error);
@@ -149,51 +191,258 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
     }
   }, [
     manufactureDate, 
-    labelTemplate?.expiration_date, 
-    labelTemplate?.expiry_date, 
-    labelTemplate?.shelf_life,
-    labelTemplate?.expiration_days,
-    labelTemplate?.expiry_days,
+    labelTemplate?.item?.expiration_date,
     itemDetail?.expiration_date, 
     itemDetail?.expiry_date
   ]);
 
-  if (!isOpen) return null;
-
-  // 바코드 이미지 생성
-  const generateBarcode = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 200;
-    canvas.height = 60;
-    const ctx = canvas.getContext('2d');
-
-    ctx.fillStyle = '#000';
-    const barcode = '8800278470831';
-    let x = 10;
-
-    for (let i = 0; i < barcode.length; i++) {
-      const digit = parseInt(barcode[i]);
-      const width = digit % 2 === 0 ? 8 : 12;
-      if (i % 2 === 0) {
-        ctx.fillRect(x, 5, width, 45);
-      }
-      x += width + 2;
+  // 바코드 이미지 생성 (백엔드 API 사용 - generate-issue-label)
+  useEffect(() => {
+    if (!isOpen || !itemData?.itemCode) {
+      setBarcodeImage(null);
+      setBarcodeNumber(null);
+      return;
     }
 
-    return canvas.toDataURL();
-  };
+    // manufactureDate와 calculatedExpiryDate가 없으면 바코드를 생성하지 않음
+    if (!manufactureDate || !calculatedExpiryDate) {
+      setBarcodeImage(null);
+      setBarcodeNumber(null);
+      return;
+    }
 
-  // 라벨 크기를 labelType으로 변환
-  const getLabelType = () => {
+    let isMounted = true;
+
+    const fetchBarcode = async () => {
+      try {
+        setIsLoadingBarcode(true);
+        
+        // itemId 찾기: 여러 경로에서 시도
+        let itemId = itemDetail?.id || 
+                     itemDetail?.itemId || 
+                     itemData?.itemId || 
+                     itemData?.id;
+        
+        // itemId가 없으면 itemDetail을 다시 가져오기 시도
+        if (!itemId && itemData?.itemCode) {
+          try {
+            const response = await itemsAPI.getItemByCode(itemData.itemCode);
+            const item = response.data?.data || response.data || {};
+            itemId = item.id || item.itemId;
+            if (itemId && isMounted) {
+              setItemDetail(item);
+            }
+          } catch (error) {
+            console.error('itemId 가져오기 실패:', error);
+          }
+        }
+        
+        if (!itemId) {
+          console.error('itemId가 없습니다. itemData:', itemData, 'itemDetail:', itemDetail);
+          if (isMounted) {
+            setIsLoadingBarcode(false);
+          }
+          return;
+        }
+        
+        // quantity 결정: 출고 시 shippedQuantity 사용, 입고 시 quantity 사용
+        // 출고량(shippedQuantity)이 있으면 우선 사용, 없으면 quantity 사용
+        const shippedQty = itemData?.shippedQuantity;
+        const unitCnt = itemData?.unitCount;
+        
+        let quantityNum;
+        if (shippedQty) {
+          // 출고량이 있으면 출고량 사용 (문자열에서 숫자만 추출)
+          const numericQty = shippedQty.toString().replace(/[^0-9.]/g, '');
+          quantityNum = numericQty ? parseFloat(numericQty) : 1;
+        } else if (quantity) {
+          // 입고 시 quantity 사용
+          quantityNum = parseInt(quantity, 10);
+        } else {
+          // 기본값: 묶음 수가 있으면 묶음 수 사용, 없으면 1
+          quantityNum = unitCnt ? parseInt(unitCnt, 10) : 1;
+        }
+        
+        if (isNaN(quantityNum) || quantityNum <= 0) {
+          console.error('유효하지 않은 quantity:', quantityNum);
+          setIsLoadingBarcode(false);
+          return;
+        }
+        
+        // 유통기한(calculatedExpiryDate)을 ISO 형식으로 변환
+        let issuedAt;
+        if (calculatedExpiryDate) {
+          const date = new Date(calculatedExpiryDate);
+          if (isNaN(date.getTime())) {
+            console.error('유효하지 않은 유통기한:', calculatedExpiryDate);
+            setIsLoadingBarcode(false);
+            return;
+          }
+          // ISO 형식으로 변환 (UTC)
+          issuedAt = date.toISOString();
+        } else {
+          console.error('유통기한이 없습니다.');
+          setIsLoadingBarcode(false);
+          return;
+        }
+        
+        // generate-issue-label API에 전송할 데이터 준비
+        const requestData = {
+          itemId: Number(itemId),
+          quantity: quantityNum,
+          issuedAt: issuedAt,
+        };
+        
+        console.log('바코드 생성 요청 데이터:', requestData);
+        
+        // generate-issue-label API 호출
+        const response = await labelAPI.generateIssueLabel(requestData);
+        
+        if (!isMounted) return;
+
+        // JSON 응답 처리
+        const responseData = response.data?.data || response.data || {};
+        const barcode = responseData.barcode;
+        
+        if (barcode) {
+          // 바코드 번호 설정
+          setBarcodeNumber(barcode);
+          
+          // 바코드 검증 (14자리 숫자)
+          const barcodeStr = barcode.toString();
+          if (barcodeStr.length !== 14 || !/^\d{14}$/.test(barcodeStr)) {
+            console.warn('유효하지 않은 바코드 형식:', barcodeStr);
+          }
+          
+          // 프론트엔드에서 바코드 이미지 생성
+          const canvas = document.createElement('canvas');
+          canvas.width = 200;  // 너비
+          canvas.height = 50;  // 높이 증가 (바코드 바 + 숫자 텍스트 공간)
+          
+          const ctx = canvas.getContext('2d');
+          
+          // 배경을 흰색으로
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // 바코드 그리기 (Code 128 스타일)
+          ctx.fillStyle = '#000000';
+          const baseBarWidth = 1.5;  // 기본 바 너비
+          const barHeight = 25;       // 바 높이
+          const startY = 5;           // 상단 여백
+          
+          // 바코드 바의 실제 너비를 계산하기 위해 먼저 모든 바의 너비 계산
+          let totalBarcodeWidth = 0;
+          for (let i = 0; i < barcodeStr.length; i++) {
+            const digit = parseInt(barcodeStr[i]);
+            const isThick = digit % 2 === 1;
+            const width = isThick ? baseBarWidth * 2.5 : baseBarWidth;
+            totalBarcodeWidth += width;
+            if (i < barcodeStr.length - 1) {
+              totalBarcodeWidth += baseBarWidth; // 간격
+            }
+          }
+          
+          // 바코드 바를 중앙 정렬하기 위한 시작 위치
+          const startX = (canvas.width - totalBarcodeWidth) / 2;
+          let x = startX;
+          
+          // 14자리 바코드 형식: [타임스탬프 13자리] + [체크섬 1자리]
+          // 각 숫자에 대해 바를 그리기
+          for (let i = 0; i < barcodeStr.length; i++) {
+            const digit = parseInt(barcodeStr[i]);
+            
+            // Code 128 스타일: 각 숫자에 대해 2개의 바(검은색)와 2개의 공백(흰색) 패턴
+            // 간단한 패턴: 짝수는 얇은 바, 홀수는 두꺼운 바
+            const isThick = digit % 2 === 1;
+            const width = isThick ? baseBarWidth * 2.5 : baseBarWidth;
+            
+            // 바 그리기
+            ctx.fillRect(x, startY, width, barHeight);
+            x += width;
+            
+            // 숫자 사이 간격 (공백)
+            if (i < barcodeStr.length - 1) {
+              x += baseBarWidth;
+            }
+          }
+          
+          // 바코드 번호 텍스트 추가 (바코드 아래 중앙 정렬)
+          ctx.fillStyle = '#000000';
+          ctx.font = '11px monospace';  // monospace로 숫자 정렬
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';  // 텍스트 기준선 설정
+          const textY = startY + barHeight + 8; // 바코드 바 아래 여백
+          // 바코드 바의 중앙에 맞춰 숫자 텍스트 정렬
+          const barcodeCenterX = startX + totalBarcodeWidth / 2;
+          ctx.fillText(barcodeStr, barcodeCenterX, textY);
+          
+          // Canvas를 base64 이미지로 변환
+          const barcodeImageData = canvas.toDataURL('image/png');
+          if (isMounted) {
+            setBarcodeImage(barcodeImageData);
+          }
+        } else {
+          console.error('바코드 번호가 응답에 없습니다:', responseData);
+          // 응답에서 바코드 번호를 가져오거나, registrationNumber 사용
+          const barcodeNum = labelTemplate?.registration_number || 
+                           itemDetail?.code || 
+                           itemData?.itemCode || 
+                           '';
+          setBarcodeNumber(barcodeNum);
+        }
+      } catch (error) {
+        if (!isMounted) return;
+        console.error('바코드 생성 실패:', error);
+        // 백엔드 API 실패 시 기본 바코드 생성
+        const actualBarcodeNumber = labelTemplate?.registration_number || 
+                                    itemDetail?.code || 
+                                    itemData?.itemCode || 
+                                    '';
+        const numericBarcode = actualBarcodeNumber.toString().replace(/\D/g, '');
+        const barcode = numericBarcode && numericBarcode.length >= 8 ? numericBarcode : '8800278470831';
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = 200;
+        canvas.height = 60;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#000';
+        let x = 10;
+        for (let i = 0; i < barcode.length; i++) {
+          const digit = parseInt(barcode[i]);
+          const width = digit % 2 === 0 ? 8 : 12;
+          if (i % 2 === 0) {
+            ctx.fillRect(x, 5, width, 45);
+          }
+          x += width + 2;
+        }
+        setBarcodeImage(canvas.toDataURL());
+        setBarcodeNumber(actualBarcodeNumber || barcode);
+      } finally {
+        if (isMounted) {
+          setIsLoadingBarcode(false);
+        }
+      }
+    };
+
+    fetchBarcode();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, itemData?.itemCode, itemData?.itemName, itemData?.name, itemData?.id, itemData?.shippedQuantity, itemData?.unitCount, manufactureDate, calculatedExpiryDate, quantity, labelTemplate?.registration_number, itemDetail?.code, itemDetail?.id]);
+
+  // 라벨 크기를 labelType으로 변환 (useMemo로 최적화)
+  const labelType = useMemo(() => {
     if (labelSize === '100X100') return 'large';
     if (labelSize === '80X60') return 'medium';
     if (labelSize === '40X20') return 'small';
     if (labelSize === '26X15' || labelSize === '15X26') return 'verysmall';
     return null;
-  };
+  }, [labelSize]);
 
-  // 모든 필드가 입력되었는지 확인
-  const isFormValid = () => {
+  // 모든 필드가 입력되었는지 확인 (useMemo로 최적화)
+  const isFormValid = useMemo(() => {
     return (
       labelSize &&
       labelSize !== '템플릿 양식 선택' &&
@@ -203,10 +452,11 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
       quantity !== '' &&
       selectedPrinter
     );
-  };
+  }, [labelSize, productName, manufactureDate, quantity, selectedPrinter]);
 
-  const handlePrint = async () => {
-    if (isProcessing) return;
+  // 프린트 핸들러 (useCallback으로 최적화)
+  const handlePrint = useCallback(async () => {
+    if (isProcessing || !isFormValid) return;
 
     const labelData = {
       labelSize,
@@ -217,7 +467,6 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
       printerName: selectedPrinter,
       itemData,
     };
-    console.log('라벨 프린트:', labelData);
 
     setIsProcessing(true);
 
@@ -225,10 +474,8 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
       // 1. 먼저 PDF 다운로드
       const previewElement = previewRef.current;
       if (previewElement) {
-        const labelType = getLabelType();
         const filename = `라벨_${productName}_${manufactureDate}_${labelSize}.pdf`;
         
-        console.log('PDF 다운로드 시작...');
         const pdfResult = await downloadPdf(previewElement, {
           filename: filename,
           orientation: 'portrait',
@@ -239,13 +486,10 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
         if (!pdfResult.success) {
           throw new Error(pdfResult.error || 'PDF 다운로드에 실패했습니다.');
         }
-        console.log('PDF 다운로드 완료');
       }
 
       // 2. PDF 다운로드 완료 후 라벨 프린트 작업 진행
-      console.log('라벨 프린트 작업 시작...');
       const printResult = await labelAPI.saveTemplate(labelData);
-      console.log('라벨 프린트 작업 완료:', printResult);
 
       // 프린트 완료 후 콜백 호출
       if (onPrintComplete) {
@@ -259,10 +503,9 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [isProcessing, isFormValid, labelSize, productName, manufactureDate, calculatedExpiryDate, quantity, selectedPrinter, itemData, downloadPdf, onPrintComplete, onClose]);
 
-  const labelType = getLabelType();
-  const barcodeImage = generateBarcode();
+  if (!isOpen) return null;
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'>
@@ -339,9 +582,9 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
                     readOnly
                     className='w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm bg-blue-50 text-blue-700 cursor-not-allowed'
                   />
-                  {(labelTemplate?.expiration_date || labelTemplate?.expiry_date || labelTemplate?.shelf_life || itemDetail?.expiration_date || itemDetail?.expiry_date) && (
+                  {(labelTemplate?.item?.expiration_date || itemDetail?.expiration_date || itemDetail?.expiry_date) && (
                     <p className='mt-1 text-xs text-gray-500'>
-                      유통기한: {labelTemplate?.expiration_date || labelTemplate?.expiry_date || labelTemplate?.shelf_life || itemDetail?.expiration_date || itemDetail?.expiry_date}일
+                      유통기한: {labelTemplate?.item?.expiration_date || itemDetail?.expiration_date || itemDetail?.expiry_date}일
                     </p>
                   )}
                 </div>
@@ -406,6 +649,8 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
                       manufactureDate={manufactureDate}
                       expiryDate={calculatedExpiryDate}
                       barcodeImage={barcodeImage}
+                      barcodeNumber={barcodeNumber}
+                      isLoadingBarcode={isLoadingBarcode}
                     />
                   )}
                   {labelType === 'medium' && (
@@ -417,6 +662,9 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
                       ingredients={labelTemplate?.ingredients || itemDetail?.ingredients || ''}
                       manufactureDate={manufactureDate}
                       expiryDate={calculatedExpiryDate}
+                      barcodeImage={barcodeImage}
+                      barcodeNumber={barcodeNumber}
+                      isLoadingBarcode={isLoadingBarcode}
                     />
                   )}
                   {labelType === 'small' && (
@@ -449,9 +697,9 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
         <div className='flex items-center justify-center border-t border-gray-200 px-6 py-4'>
           <button
             onClick={handlePrint}
-            disabled={!isFormValid() || isProcessing || isPdfLoading}
+            disabled={!isFormValid || isProcessing || isPdfLoading}
             className={`w-32 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-colors ${
-              isFormValid() && !isProcessing && !isPdfLoading
+              isFormValid && !isProcessing && !isPdfLoading
                 ? 'bg-[#674529] hover:bg-[#5a3d22] cursor-pointer'
                 : 'bg-gray-300 cursor-not-allowed'
             }`}
@@ -464,8 +712,8 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
   );
 };
 
-// 라벨 컴포넌트들
-const LargeLabelContent = ({ 
+// 라벨 컴포넌트들 (React.memo로 최적화)
+const LargeLabelContent = React.memo(({ 
   productName, 
   storageCondition, 
   registrationNumber, 
@@ -475,7 +723,9 @@ const LargeLabelContent = ({
   actualWeight, 
   manufactureDate, 
   expiryDate, 
-  barcodeImage 
+  barcodeImage,
+  barcodeNumber,
+  isLoadingBarcode
 }) => {
   const getStorageIcon = () => {
     if (storageCondition === '냉동') {
@@ -515,8 +765,19 @@ const LargeLabelContent = ({
 
       <div className="flex justify-between items-end">
         <div className="text-center">
-          <img src={barcodeImage} alt="Barcode" className="w-32 h-auto mb-1" />
-          <div className="text-[8px] font-mono">8 800278 470831</div>
+          {isLoadingBarcode ? (
+            <div className="w-32 h-16 flex items-center justify-center text-[8px] text-gray-400">
+              바코드 로딩 중...
+            </div>
+          ) : barcodeImage ? (
+            <div className="w-full flex justify-center overflow-hidden">
+              <img src={barcodeImage} alt="Barcode" className="h-auto mb-1" style={{ maxWidth: '100%', height: 'auto' }} />
+            </div>
+          ) : (
+            <div className="w-32 h-16 flex items-center justify-center text-[8px] text-gray-400">
+              바코드 없음
+            </div>
+          )}
         </div>
         <div className="text-[9px] text-right space-y-0.5">
           {manufactureDate && <p><span className="font-semibold">제조일자:</span> {manufactureDate}</p>}
@@ -529,16 +790,19 @@ const LargeLabelContent = ({
       </div>
     </div>
   );
-};
+});
 
-const MediumLabelContent = ({ 
+const MediumLabelContent = React.memo(({ 
   productName, 
   storageCondition, 
   registrationNumber, 
   categoryAndForm, 
   ingredients, 
   manufactureDate, 
-  expiryDate 
+  expiryDate,
+  barcodeImage,
+  barcodeNumber,
+  isLoadingBarcode
 }) => (
   <div className="w-[80mm] h-[60mm] p-3 flex flex-col justify-start border-2 border-gray-200">
     <h2 className="text-xl font-bold mb-2 text-gray-900">{productName || '제품명'}</h2>
@@ -553,15 +817,17 @@ const MediumLabelContent = ({
         <p><span className="font-semibold">성분량:</span> {ingredients}</p>
       )}
     </div>
-    <div className="text-[9px] space-y-0.5 mt-auto">
-      {manufactureDate && <p><span className="font-semibold">제조일자:</span> {manufactureDate}</p>}
-      {expiryDate && <p><span className="font-semibold">유통기한:</span> {expiryDate}</p>}
+    <div className="flex justify-end items-end mt-auto">
+      <div className="text-[9px] space-y-0.5">
+        {manufactureDate && <p><span className="font-semibold">제조일자:</span> {manufactureDate}</p>}
+        <p><span className="font-semibold">유통기한:</span> {expiryDate || '-'}</p>
+      </div>
     </div>
   </div>
-);
+));
 
-const SmallLabelContent = ({ productName, manufactureDate, expiryDate, barcodeImage }) => (
-  <div className="w-[40mm] h-[20mm] p-1 flex flex-col border-2 border-gray-200 items-center justify-center text-center">
+const SmallLabelContent = React.memo(({ productName, manufactureDate, expiryDate, barcodeImage, isLoadingBarcode }) => (
+  <div className="w-[40mm] h-[20mm] p-1 flex flex-col border-2 border-gray-200 items-center justify-center text-center overflow-hidden">
     <div className="text-[7px] mb-1">
       <p className="font-semibold mb-0.5">제 조 날 짜</p>
       <p className="tracking-widest">{manufactureDate ? manufactureDate.split('').join(' ') : '-'}</p>
@@ -571,15 +837,21 @@ const SmallLabelContent = ({ productName, manufactureDate, expiryDate, barcodeIm
       <p className="tracking-widest">{expiryDate ? expiryDate.split('').join(' ') : '-'}</p>
     </div>
   </div>
-);
+));
 
-const VerySmallLabelContent = ({ productName, manufactureDate, expiryDate, barcodeImage }) => (
-  <div className="w-[26mm] h-[15mm] p-1 flex items-center justify-center gap-2 border-2 border-gray-200">
-    <div className="text-[6px] font-bold transform -rotate-90 whitespace-nowrap">
+const VerySmallLabelContent = React.memo(({ productName, manufactureDate, expiryDate, barcodeImage, isLoadingBarcode }) => (
+  <div className="w-[26mm] h-[15mm] p-1 flex items-center justify-center gap-2 border-2 border-gray-200 overflow-hidden">
+    <div className="text-[6px] font-bold transform -rotate-90 whitespace-nowrap flex-shrink-0">
       {productName || '제품명'}
     </div>
-    {barcodeImage && <img src={barcodeImage} alt="Barcode" className="w-16 h-auto" />}
+    {isLoadingBarcode ? (
+      <div className="text-[5px] text-gray-400">로딩 중...</div>
+    ) : barcodeImage ? (
+      <div className="flex-shrink min-w-0 flex justify-center overflow-hidden">
+        <img src={barcodeImage} alt="Barcode" className="h-auto max-w-full" style={{ maxWidth: '20mm', height: 'auto' }} />
+      </div>
+    ) : null}
   </div>
-);
+));
 
 export default LabelPrintModal;
