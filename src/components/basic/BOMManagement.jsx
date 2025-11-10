@@ -3,7 +3,8 @@ import axios from 'axios';
 import BOMRegistration from './BOMRegistration';
 import BOMList from './BOMList';
 
-const API = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://223.130.143.87/api';
+// 환경 변수에서 API URL 가져오기 (기본값 없음 - .env 필수)
+const API = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL;
 
 const BOMManagement = () => {
   const [bomList, setBomList] = useState([]);

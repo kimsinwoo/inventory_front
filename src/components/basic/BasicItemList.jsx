@@ -5,7 +5,8 @@ import Pagination from '../common/Pagination';
 import { selectItemDetail, selectItemDetailLoading } from '../../store/modules/basic/selectors';
 import { deleteItem, fetchItems } from '../../store/modules/basic/actions';
 
-const API = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://223.130.143.87/api';
+// 환경 변수에서 API URL 가져오기 (기본값 없음 - .env 필수)
+const API = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL;
 
 const BasicItemList = () => {
   const dispatch = useDispatch();

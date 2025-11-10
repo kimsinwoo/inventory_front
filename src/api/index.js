@@ -1,7 +1,17 @@
 import axios from 'axios';
 
 // API 기본 설정 (Vite 환경 변수 사용)
-const API_BASE_URL = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://223.130.143.87/api';
+// .env 파일의 VITE_API_URL을 사용합니다
+// 배포 시: .env 파일을 변경한 후 반드시 재빌드해야 합니다 (npm run build)
+const API_BASE_URL = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL;
+
+if (!API_BASE_URL) {
+  console.error('⚠️ VITE_API_URL 환경 변수가 설정되지 않았습니다.');
+  console.error('⚠️ .env 파일에 VITE_API_URL을 설정하고, 개발 서버를 재시작하거나 재빌드하세요.');
+  throw new Error('VITE_API_URL 환경 변수가 필요합니다. .env 파일에 VITE_API_URL을 설정해주세요.');
+}
+
+console.log('🔗 API Base URL:', API_BASE_URL);
 
 // Axios 인스턴스 생성
 const apiClient = axios.create({

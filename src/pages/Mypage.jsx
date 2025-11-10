@@ -15,7 +15,8 @@ import axios from "axios";
 
 const Mypage = () => {
   const navigate = useNavigate();
-  const API_BASE_URL = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://223.130.143.87/api';
+  // 환경 변수에서 API URL 가져오기 (기본값 없음 - .env 필수)
+  const API_BASE_URL = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL;
   const api = axios.create({
     baseURL: API_BASE_URL,
     withCredentials: true,
