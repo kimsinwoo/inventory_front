@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3001';
+// PDF 서버 URL (환경 변수에서 가져오거나 기본값 사용)
+const PDF_SERVER_URL = import.meta.env.VITE_PDF_SERVER_URL || 'http://223.130.143.87:3001';
 
 /**
  * Puppeteer를 사용하여 HTML을 PDF로 변환
@@ -82,7 +83,7 @@ export const generatePdfWithPuppeteer = async (element, filename = 'document.pdf
 
     // 서버에 PDF 생성 요청
     const response = await axios.post(
-      `${API_BASE_URL}/api/generate-pdf`,
+      `${PDF_SERVER_URL}/api/generate-pdf`,
       {
         html: htmlContent,
         filename: filename
@@ -131,7 +132,7 @@ export const generatePdfWithPuppeteer = async (element, filename = 'document.pdf
  */
 export const checkServerHealth = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/health`, { timeout: 5000 });
+    const response = await axios.get(`${PDF_SERVER_URL}/health`, { timeout: 5000 });
     return response.data.status === 'OK';
   } catch (error) {
     console.error('서버 연결 실패:', error);

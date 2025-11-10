@@ -2,10 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { Plus } from 'lucide-react';
 
-const API =
-  import.meta.env.VITE_API_URL ||
-  process.env.REACT_APP_API_URL ||
-  'http://localhost:4000/api';
+const API = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://223.130.143.87/api';
 
 // 안전 파서: 응답이 배열이든 {data: []}든 배열을 뽑아줌
 const pickRows = (res) => {

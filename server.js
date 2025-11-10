@@ -109,8 +109,8 @@ app.get('/health', (_req, res) => {
 
 // 서버 시작
 app.listen(PORT, () => {
-  console.log(`PDF generation server running on http://localhost:${PORT}`);
-  console.log(`API endpoint: http://localhost:${PORT}/api/generate-pdf`);
+  console.log(`PDF generation server running on http://223.130.143.87:${PORT}`);
+  console.log(`API endpoint: http://223.130.143.87:${PORT}/api/generate-pdf`);
 });
 
 // 에러 핸들링

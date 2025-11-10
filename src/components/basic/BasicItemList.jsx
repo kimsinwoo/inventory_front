@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Package, Edit, Trash2, Factory } from 'lucide-react';
 import Pagination from '../common/Pagination';
 
-const API = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
+const API = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://223.130.143.87/api';
 
 const BasicItemList = () => {
   const [items, setItems] = useState([]);
