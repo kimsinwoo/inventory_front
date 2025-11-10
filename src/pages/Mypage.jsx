@@ -15,8 +15,9 @@ import axios from "axios";
 
 const Mypage = () => {
   const navigate = useNavigate();
+  const API_BASE_URL = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://223.130.143.87/api';
   const api = axios.create({
-    baseURL: "http://localhost:4000",
+    baseURL: API_BASE_URL,
     withCredentials: true,
   });
 
@@ -42,7 +43,7 @@ const Mypage = () => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await api.get("/api/auth/me");
+        const res = await api.get("/auth/me");
         console.log(res);
         const user = res.data?.user ?? res.data;
         if (!user) throw new Error("유저 정보를 불러올 수 없습니다.");
@@ -87,7 +88,7 @@ const Mypage = () => {
     if (newPassword !== confirmPassword) return alert("새 비밀번호가 일치하지 않습니다.");
     if (newPassword.length < 4) return alert("비밀번호는 최소 4자 이상이어야 합니다.");
     try {
-      const res = await api.post("/api/auth/password", {
+      const res = await api.post("/auth/password", {
         currentPassword,
         newPassword,
       });
@@ -128,7 +129,7 @@ const Mypage = () => {
       return;
     }
     try {
-      const res = await api.post("/api/auth/position", { position: newPosition });
+      const res = await api.post("/auth/position", { position: newPosition });
       if (res.data.ok) {
         setUserData((prev) => ({ ...prev, position: newPosition }));
         alert("직급이 변경되었습니다.");
@@ -154,7 +155,7 @@ const Mypage = () => {
   const handleLogout = async () => {
     if (!window.confirm("로그아웃 하시겠습니까?")) return;
     try {
-      await api.post("/api/auth/logout");
+      await api.post("/auth/logout");
     } catch {}
     navigate("/login");
   };

@@ -55,7 +55,8 @@ const CreateUser = () => {
         role: '4', // 고정
       };
 
-      const res = await fetch('http://localhost:4000/api/auth/join', {
+      const API_URL = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://223.130.143.87/api';
+      const res = await fetch(`${API_URL}/auth/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

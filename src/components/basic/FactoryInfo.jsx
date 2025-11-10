@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Factory as FactoryIcon, X, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-const API = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
+const API = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://223.130.143.87/api';
 
 // 선택 가능한 공장 유형(원하면 여기 배열만 수정하면 됨)
 const FACTORY_TYPES = ['1PreProcessing', '2Manufacturing'];

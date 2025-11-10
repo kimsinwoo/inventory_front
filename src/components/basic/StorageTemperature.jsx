@@ -2,10 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Thermometer, X, Plus } from 'lucide-react';
 
 // API 환경변수가 없는 경우 fallback 적용
-const API_BASE =
-  (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL)) ||
-  (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) ||
-  'http://localhost:4000/api';
+const API_BASE = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://223.130.143.87/api';
 
 const StorageTemperature = () => {
   const [storageConditions, setStorageConditions] = useState([]);
