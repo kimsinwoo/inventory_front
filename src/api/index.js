@@ -87,10 +87,10 @@ export const bomsAPI = {
 };
 // 보관 조건
 export const storageAPI = {
-  getStorage: () => apiClient.get('/storage-conditions'),
-  getStorage: (id) => apiClient.get(`/storage-conitions/${id}`),
+  getStorageConditions: () => apiClient.get('/storage-conditions'),
+  getStorageConditionById: (id) => apiClient.get(`/storage-conditions/${id}`),
   createStorage: (data) => apiClient.post('/storage-conditions', data),
-  updateStorage: (id, data) => apiClient.put(`/storage-conditions${id}`, data),
+  updateStorage: (id, data) => apiClient.put(`/storage-conditions/${id}`, data),
 } 
 
 // ==================== 재고 관리 API ====================
