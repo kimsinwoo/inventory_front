@@ -28,17 +28,38 @@ const PrintLabel = ({ isOpen, onClose, onPrinted }) => {
     const fetchPrinters = async () => {
       try {
         setIsLoadingPrinters(true);
+        console.log('🔍 프린터 목록 요청 시작...');
         const response = await labelAPI.getPrinters();
+        console.log('✅ 프린터 목록 응답:', response);
+        console.log('📦 응답 데이터:', response.data);
+        
         const list = Array.isArray(response.data)
           ? response.data
-          : response.data?.data || response.data?.printers || [];
+          : response.data?.data || response.data?.printers || response.data?.printersList || [];
+        
+        console.log('🖨️ 파싱된 프린터 목록:', list);
         setPrinters(list);
+        
         if (list.length > 0) {
-          const first = typeof list[0] === 'string' ? list[0] : list[0].name || list[0].id;
+          const first = typeof list[0] === 'string' 
+            ? list[0] 
+            : list[0].name || list[0].id || list[0].printerName;
           setSelectedPrinter(first);
+          console.log('✅ 기본 프린터 선택:', first);
+        } else {
+          console.warn('⚠️ 프린터 목록이 비어있습니다.');
         }
       } catch (err) {
-        console.error('프린터 목록 가져오기 실패:', err);
+        console.error('❌ 프린터 목록 가져오기 실패:', err);
+        console.error('📋 에러 상세:', {
+          message: err.message,
+          response: err.response?.data,
+          status: err.response?.status,
+          statusText: err.response?.statusText,
+          url: err.config?.url,
+          baseURL: err.config?.baseURL,
+        });
+        setPrinters([]);
       } finally {
         setIsLoadingPrinters(false);
       }

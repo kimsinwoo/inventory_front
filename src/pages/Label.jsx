@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Printer, Package, Snowflake, Microwave } from 'lucide-react';
+import { Printer, Package, Snowflake, Microwave, Plus, X } from 'lucide-react';
 import { labelAPI, itemsAPI } from '../api';
 import SavedLabelList from '../components/label/SavedLabelList';
+import { getPrinters, addPrinter, removePrinter, getDefaultPrinter, setDefaultPrinter } from '../utils/printerUtils';
 
 const escapeHtml = (value = '') =>
   String(value)
@@ -29,6 +30,8 @@ const Label = () => {
   const [printers, setPrinters] = useState([]);
   const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [newPrinterName, setNewPrinterName] = useState('');
+  const [showAddPrinter, setShowAddPrinter] = useState(false);
   const printRef = useRef();
   const abortControllerRef = useRef(null); // API 요청 취소용
 
@@ -134,32 +137,38 @@ const Label = () => {
     }
   }, [finishedItems]);
 
-  // 프린터 목록 가져오기 (cleanup 추가)
+  // 프린터 목록 가져오기 (자동으로 API 또는 localStorage에서)
   useEffect(() => {
     let isMounted = true;
-
-    const fetchPrinters = async () => {
+    
+    const loadPrinters = async () => {
       try {
         setIsLoadingPrinters(true);
-        const response = await labelAPI.getPrinters();
+        console.log('🔍 프린터 목록 자동 로드 시작...');
+        
+        // API를 통해 프린터 목록 가져오기 시도
+        const printerList = await getPrinters(() => labelAPI.getPrinters());
+        
         if (isMounted) {
-          // 응답 형식에 따라 조정 (배열이거나 data 속성에 배열이 있을 수 있음)
-          const printerList = Array.isArray(response.data) 
-            ? response.data 
-            : response.data?.data || response.data?.printers || [];
+          console.log('✅ 가져온 프린터 목록:', printerList);
           setPrinters(printerList);
-          // 첫 번째 프린터를 기본 선택
+          
           if (printerList.length > 0) {
-            const firstPrinter = typeof printerList[0] === 'string' 
-              ? printerList[0] 
-              : printerList[0].name || printerList[0].id;
-            setSelectedPrinter(firstPrinter);
+            const defaultPrinter = getDefaultPrinter();
+            // 기본 프린터가 있으면 사용, 없으면 첫 번째 프린터 사용
+            const printerToSelect = defaultPrinter && printerList.includes(defaultPrinter) 
+              ? defaultPrinter 
+              : printerList[0];
+            setSelectedPrinter(printerToSelect);
+            console.log('✅ 선택된 프린터:', printerToSelect);
+          } else {
+            console.warn('⚠️ 프린터 목록이 비어있습니다. 프린터를 추가해주세요.');
           }
         }
       } catch (error) {
-        if (isMounted && error.name !== 'AbortError') {
-          console.error('프린터 목록 가져오기 실패:', error);
-          alert('프린터 목록을 불러올 수 없습니다.');
+        if (isMounted) {
+          console.error('❌ 프린터 목록 로드 실패:', error);
+          setPrinters([]);
         }
       } finally {
         if (isMounted) {
@@ -167,14 +176,50 @@ const Label = () => {
         }
       }
     };
-
-    fetchPrinters();
-
-    // Cleanup 함수
+    
+    loadPrinters();
+    
     return () => {
       isMounted = false;
     };
   }, []);
+
+  // 프린터 추가 핸들러
+  const handleAddPrinter = () => {
+    if (!newPrinterName.trim()) {
+      alert('프린터 이름을 입력해주세요.');
+      return;
+    }
+    
+    if (addPrinter(newPrinterName.trim())) {
+      const updatedPrinters = getSavedPrinters();
+      setPrinters(updatedPrinters);
+      setSelectedPrinter(newPrinterName.trim());
+      setNewPrinterName('');
+      setShowAddPrinter(false);
+    } else {
+      alert('이미 등록된 프린터입니다.');
+    }
+  };
+
+  // 프린터 삭제 핸들러
+  const handleRemovePrinter = (printerName) => {
+    if (window.confirm(`"${printerName}" 프린터를 삭제하시겠습니까?`)) {
+      removePrinter(printerName);
+      const updatedPrinters = getSavedPrinters();
+      setPrinters(updatedPrinters);
+      
+      if (selectedPrinter === printerName) {
+        setSelectedPrinter(updatedPrinters.length > 0 ? updatedPrinters[0] : '');
+      }
+    }
+  };
+
+  // 프린터 선택 시 기본 프린터로 설정
+  const handlePrinterChange = (printerName) => {
+    setSelectedPrinter(printerName);
+    setDefaultPrinter(printerName);
+  };
 
   // 바코드 이미지 생성 (useMemo로 최적화)
   const barcodeImage = useMemo(() => {
@@ -502,27 +547,95 @@ const Label = () => {
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               프린터 선택 *
             </label>
-            <select
-              value={selectedPrinter}
-              onChange={(e) => setSelectedPrinter(e.target.value)}
-              disabled={isLoadingPrinters || printers.length === 0}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoadingPrinters ? (
-                <option>프린터 목록 로딩 중...</option>
-              ) : printers.length === 0 ? (
-                <option>사용 가능한 프린터가 없습니다</option>
-              ) : (
-                printers.map((printer, index) => {
-                  const printerName = typeof printer === 'string' ? printer : printer.name || printer.id || `프린터 ${index + 1}`;
+            <div className="flex gap-2">
+              <select
+                value={selectedPrinter}
+                onChange={(e) => handlePrinterChange(e.target.value)}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors"
+              >
+                {printers.length === 0 ? (
+                  <option value="">프린터를 추가해주세요</option>
+                ) : (
+                  printers.map((printer, index) => {
+                    const printerName = typeof printer === 'string' 
+                      ? printer 
+                      : (printer?.name || printer?.id || printer?.printerName || String(printer));
+                    return (
+                      <option key={index} value={printerName}>
+                        {printerName}
+                      </option>
+                    );
+                  })
+                )}
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowAddPrinter(!showAddPrinter)}
+                className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors flex items-center gap-2"
+                title="프린터 추가"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
+            
+            {/* 프린터 추가 입력 필드 */}
+            {showAddPrinter && (
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  value={newPrinterName}
+                  onChange={(e) => setNewPrinterName(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddPrinter()}
+                  placeholder="프린터 이름 입력"
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleAddPrinter}
+                  className="px-4 py-2.5 bg-[#674529] text-white rounded-xl hover:bg-[#5a3d22] transition-colors"
+                >
+                  추가
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddPrinter(false);
+                    setNewPrinterName('');
+                  }}
+                  className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors"
+                >
+                  취소
+                </button>
+              </div>
+            )}
+            
+            {/* 저장된 프린터 목록 표시 (삭제 가능) */}
+            {printers.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {printers.map((printer, index) => {
+                  const printerName = typeof printer === 'string' 
+                    ? printer 
+                    : (printer?.name || printer?.id || printer?.printerName || String(printer));
                   return (
-                    <option key={index} value={printerName}>
-                      {printerName}
-                    </option>
+                    <div
+                      key={index}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 rounded-lg text-sm"
+                    >
+                      <span>{printerName}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePrinter(printerName)}
+                        className="text-red-500 hover:text-red-700"
+                        title="삭제"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
                   );
-                })
-              )}
-            </select>
+                })}
+              </div>
+            )}
           </div>
         </div>
 

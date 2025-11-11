@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Printer, Search, Package, Barcode } from 'lucide-react';
 import { labelAPI } from '../../api';
+import { getPrinters, getDefaultPrinter } from '../../utils/printerUtils';
 
 const SavedLabelList = () => {
   const [labels, setLabels] = useState([]);
@@ -18,25 +19,38 @@ const SavedLabelList = () => {
   useEffect(() => {
     let isMounted = true;
 
-    const fetchPrinters = async () => {
+    const loadPrinters = async () => {
       try {
         setIsLoadingPrinters(true);
-        const response = await labelAPI.getPrinters();
+        console.log('🔍 프린터 목록 자동 로드 시작...');
+        
+        // API를 통해 프린터 목록 가져오기 시도
+        const printerList = await getPrinters(() => labelAPI.getPrinters());
+        
         if (isMounted) {
-          const printerList = Array.isArray(response.data) 
-            ? response.data 
-            : response.data?.data || response.data?.printers || [];
+          console.log('✅ 가져온 프린터 목록:', printerList);
           setPrinters(printerList);
+          
           if (printerList.length > 0) {
-            const firstPrinter = typeof printerList[0] === 'string' 
-              ? printerList[0] 
-              : printerList[0].name || printerList[0].id;
-            setSelectedPrinter(firstPrinter);
+            const defaultPrinter = getDefaultPrinter();
+            // 프린터 목록에서 이름 추출
+            const printerNames = printerList.map(p => 
+              typeof p === 'string' ? p : (p?.name || p?.id || p?.printerName || String(p))
+            );
+            // 기본 프린터가 있으면 사용, 없으면 첫 번째 프린터 사용
+            const printerToSelect = defaultPrinter && printerNames.includes(defaultPrinter) 
+              ? defaultPrinter 
+              : printerNames[0];
+            setSelectedPrinter(printerToSelect);
+            console.log('✅ 선택된 프린터:', printerToSelect);
+          } else {
+            console.warn('⚠️ 프린터 목록이 비어있습니다. 프린터를 추가해주세요.');
           }
         }
       } catch (error) {
         if (isMounted && error.name !== 'AbortError') {
-          console.error('프린터 목록 가져오기 실패:', error);
+          console.error('❌ 프린터 목록 로드 실패:', error);
+          setPrinters([]);
         }
       } finally {
         if (isMounted) {
@@ -45,7 +59,7 @@ const SavedLabelList = () => {
       }
     };
 
-    fetchPrinters();
+    loadPrinters();
 
     // Cleanup 함수
     return () => {
@@ -239,7 +253,9 @@ const SavedLabelList = () => {
                 <option>사용 가능한 프린터가 없습니다</option>
               ) : (
                 printers.map((printer, index) => {
-                  const printerName = typeof printer === 'string' ? printer : printer.name || printer.id || `프린터 ${index + 1}`;
+                  const printerName = typeof printer === 'string' 
+                    ? printer 
+                    : (printer?.name || printer?.id || printer?.printerName || `프린터 ${index + 1}`);
                   return (
                     <option key={index} value={printerName}>
                       {printerName}
