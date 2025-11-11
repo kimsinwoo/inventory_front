@@ -20,6 +20,17 @@
 - `VITE_ENV`: 환경 모드 (`development` | `production`)
   - 기본값: `development`
 
+- `VITE_JSPM_SERVER_URL`: JSPrintManager 서버 URL (WebSocket)
+  - 기본값: `wss://localhost:28443` (WSS 포트)
+  - 또는: `ws://localhost:9595` (WS 포트, 비보안)
+  - JSPrintManager는 WebSocket을 사용하여 실시간 통신합니다
+  - JSPrintManager를 사용하여 프린터 목록을 가져오는 경우에만 필요
+  - 자세한 내용은 [JSPRINTMANAGER_SETUP.md](./JSPRINTMANAGER_SETUP.md) 참고
+
+- `VITE_JSPM_PORT`: JSPrintManager WebSocket 포트 (선택적)
+  - 기본값: `28443` (WSS), `9595` (WS)
+  - 환경 변수에서 포트만 설정하려는 경우 사용
+
 ## 개발 환경 설정
 
 ### 1. .env 파일 생성
@@ -32,6 +43,14 @@ VITE_API_URL=http://localhost:4000/api
 
 # 환경 모드
 VITE_ENV=development
+
+# JSPrintManager 서버 URL (WebSocket, 선택적)
+# WSS (WebSocket Secure, 권장): wss://localhost:28443
+# WS (WebSocket, 비보안): ws://localhost:9595
+VITE_JSPM_SERVER_URL=wss://localhost:28443
+
+# JSPrintManager WebSocket 포트 (선택적, 기본값: 28443 for WSS)
+VITE_JSPM_PORT=28443
 ```
 
 ### 2. 개발 서버 재시작

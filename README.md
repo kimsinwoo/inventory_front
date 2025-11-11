@@ -53,15 +53,32 @@ npm run preview
 
 - `VITE_API_URL`: 백엔드 API 서버의 기본 URL (필수)
 - `VITE_ENV`: 환경 모드 (`development` | `production`)
+- `VITE_JSPM_SERVER_URL`: JSPrintManager 서버 URL (WebSocket, 선택적, 기본값: `wss://localhost:28443`)
+- `VITE_JSPM_PORT`: JSPrintManager WebSocket 포트 (선택적, 기본값: `28443` for WSS)
 
 ## 📚 문서
 
 - [ENV_SETUP_GUIDE.md](./ENV_SETUP_GUIDE.md) - 환경 변수 설정 가이드
 - [FRONTEND_API_GUIDE.md](./FRONTEND_API_GUIDE.md) - API 사용 가이드
+- [JSPRINTMANAGER_SETUP.md](./JSPRINTMANAGER_SETUP.md) - JSPrintManager 설정 가이드
+- [JSPM_WEBSOCKET_GUIDE.md](./JSPM_WEBSOCKET_GUIDE.md) - WebSocket 연결 가이드 ⭐
+- [JSPM_SERVER_GUIDE.md](./JSPM_SERVER_GUIDE.md) - JSPM 서버 실행 가이드
+- [PRINTER_WITHOUT_BACKEND.md](./PRINTER_WITHOUT_BACKEND.md) - 백엔드 없이 프린터 사용 가이드
 
 ## 🔐 인증
 
 이 프로젝트는 세션 기반 인증을 사용합니다. 쿠키를 통해 인증이 처리됩니다.
+
+## 🖨️ 프린터 관리
+
+프린터 목록은 다음 우선순위로 가져옵니다:
+
+1. **JSPrintManager** (최우선) - 클라이언트 측 프린터 목록
+2. **브라우저 API** - 브라우저가 지원하는 경우
+3. **백엔드 API** - 서버를 통한 프린터 목록
+4. **localStorage** - 저장된 프린터 목록
+
+JSPrintManager를 사용하려면 클라이언트 컴퓨터에 JSPrintManager 클라이언트 소프트웨어가 설치되어 있어야 합니다. 자세한 내용은 [JSPRINTMANAGER_SETUP.md](./JSPRINTMANAGER_SETUP.md)를 참고하세요.
 
 ## 🌐 API 통신
 

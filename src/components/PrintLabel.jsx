@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, Printer, Package, Barcode } from 'lucide-react';
 import { labelAPI } from '../api';
+import { getPrinters, getDefaultPrinter } from '../utils/printerUtils';
 
 const SIZES = [
   { value: 'large', label: 'Large (100mm)' },
@@ -23,48 +24,61 @@ const PrintLabel = ({ isOpen, onClose, onPrinted }) => {
   const [isPrinting, setIsPrinting] = useState(false);
 
   // 프린터 목록 로드 (모달 열릴 때)
+  // JSPrintManager 우선 사용, 백엔드 API는 fallback
   useEffect(() => {
     if (!isOpen) return;
-    const fetchPrinters = async () => {
+    
+    let isMounted = true;
+    
+    const loadPrinters = async () => {
       try {
         setIsLoadingPrinters(true);
-        console.log('🔍 프린터 목록 요청 시작...');
-        const response = await labelAPI.getPrinters();
-        console.log('✅ 프린터 목록 응답:', response);
-        console.log('📦 응답 데이터:', response.data);
+        console.log('🔍 프린터 목록 자동 로드 시작...');
         
-        const list = Array.isArray(response.data)
-          ? response.data
-          : response.data?.data || response.data?.printers || response.data?.printersList || [];
+        // getPrinters는 JSPrintManager를 최우선으로 사용하며, 
+        // 백엔드 API는 JSPrintManager가 실패할 때만 사용됩니다
+        // 백엔드가 없어도 JSPrintManager가 작동하면 정상 작동합니다
+        const printerList = await getPrinters(() => labelAPI.getPrinters());
         
-        console.log('🖨️ 파싱된 프린터 목록:', list);
-        setPrinters(list);
-        
-        if (list.length > 0) {
-          const first = typeof list[0] === 'string' 
-            ? list[0] 
-            : list[0].name || list[0].id || list[0].printerName;
-          setSelectedPrinter(first);
-          console.log('✅ 기본 프린터 선택:', first);
-        } else {
-          console.warn('⚠️ 프린터 목록이 비어있습니다.');
+        if (isMounted) {
+          console.log('✅ 가져온 프린터 목록:', printerList);
+          
+          // 프린터 목록에서 이름 추출
+          const printerNames = printerList.map(p => 
+            typeof p === 'string' ? p : (p?.name || p?.id || p?.printerName || String(p))
+          );
+          
+          setPrinters(printerNames);
+          
+          if (printerNames.length > 0) {
+            const defaultPrinter = getDefaultPrinter();
+            // 기본 프린터가 있으면 사용, 없으면 첫 번째 프린터 사용
+            const printerToSelect = defaultPrinter && printerNames.includes(defaultPrinter) 
+              ? defaultPrinter 
+              : printerNames[0];
+            setSelectedPrinter(printerToSelect);
+            console.log('✅ 선택된 프린터:', printerToSelect);
+          } else {
+            console.warn('⚠️ 프린터 목록이 비어있습니다. 프린터를 추가해주세요.');
+          }
         }
-      } catch (err) {
-        console.error('❌ 프린터 목록 가져오기 실패:', err);
-        console.error('📋 에러 상세:', {
-          message: err.message,
-          response: err.response?.data,
-          status: err.response?.status,
-          statusText: err.response?.statusText,
-          url: err.config?.url,
-          baseURL: err.config?.baseURL,
-        });
-        setPrinters([]);
+      } catch (error) {
+        if (isMounted) {
+          console.error('❌ 프린터 목록 로드 실패:', error);
+          setPrinters([]);
+        }
       } finally {
-        setIsLoadingPrinters(false);
+        if (isMounted) {
+          setIsLoadingPrinters(false);
+        }
       }
     };
-    fetchPrinters();
+    
+    loadPrinters();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen]);
 
   // 저장된 라벨 로드 (모달 열릴 때)
