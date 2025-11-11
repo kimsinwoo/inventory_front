@@ -6,10 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>애니콩</title>
     <!-- JSPrintManager 라이브러리 -->
-    <!-- 로컬 파일 사용 (npm 패키지에서 복사) -->
-    <script src="/js/JSPrintManager.js"></script>
-    <!-- CDN 사용 (로컬 파일이 실패할 경우): -->
-    <!-- <script src="https://cdn.neodynamic.com/jsprintmanager/JSPrintManager.js" onerror="console.error('JSPrintManager CDN 로드 실패')"></script> -->
+    <!-- 로컬 파일 우선 사용 (배포 환경에서도 작동) -->
+    <script src="/js/JSPrintManager.js" 
+            onerror="console.warn('⚠️ 로컬 JSPrintManager.js 로드 실패, CDN 시도...'); 
+                     (function() {
+                       var script = document.createElement('script');
+                       script.src = 'https://cdn.neodynamic.com/jsprintmanager/JSPrintManager.js';
+                       script.onerror = function() { console.error('❌ JSPrintManager CDN 로드도 실패했습니다.'); };
+                       document.head.appendChild(script);
+                     })();">
+    </script>
+    <!-- CDN Fallback: 로컬 파일이 실패할 경우 자동으로 CDN에서 로드 -->
   </head>
   <body>
     <div id="root"></div>

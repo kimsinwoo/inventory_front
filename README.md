@@ -60,8 +60,9 @@ npm run preview
 
 - [ENV_SETUP_GUIDE.md](./ENV_SETUP_GUIDE.md) - 환경 변수 설정 가이드
 - [FRONTEND_API_GUIDE.md](./FRONTEND_API_GUIDE.md) - API 사용 가이드
+- [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) - 배포 환경 가이드 ⭐
 - [JSPRINTMANAGER_SETUP.md](./JSPRINTMANAGER_SETUP.md) - JSPrintManager 설정 가이드
-- [JSPM_WEBSOCKET_GUIDE.md](./JSPM_WEBSOCKET_GUIDE.md) - WebSocket 연결 가이드 ⭐
+- [JSPM_WEBSOCKET_GUIDE.md](./JSPM_WEBSOCKET_GUIDE.md) - WebSocket 연결 가이드
 - [JSPM_SERVER_GUIDE.md](./JSPM_SERVER_GUIDE.md) - JSPM 서버 실행 가이드
 - [PRINTER_WITHOUT_BACKEND.md](./PRINTER_WITHOUT_BACKEND.md) - 백엔드 없이 프린터 사용 가이드
 

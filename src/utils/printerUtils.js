@@ -53,16 +53,24 @@ export const initializeJSPM = async (serverUrl = null, port = null, useSecure = 
   
   // JSPrintManager 가져오기 (전역 객체에서)
   // JSPrintManager는 HTML의 <script> 태그를 통해 로드되면 window.JSPM에 등록됩니다
+  // 배포 환경(https://anniecong.o-r.kr)에서도 작동해야 함
+  
+  // 환경 확인
+  const isProduction = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'production';
+  const isHttps = typeof window !== 'undefined' && window.location?.protocol === 'https:';
+  const currentHost = typeof window !== 'undefined' ? window.location?.hostname : 'localhost';
   
   // 스크립트 로드 확인 및 대기 함수
-  const waitForJSPM = async (maxWait = 5000) => {
+  const waitForJSPM = async (maxWait = 8000) => {
     const startTime = Date.now();
     let attempts = 0;
     const maxAttempts = Math.floor(maxWait / 100);
     
     while (attempts < maxAttempts) {
       if (typeof window !== 'undefined' && window.JSPM && window.JSPM.JSPrintManager) {
-        console.log(`✅ JSPrintManager 로드 확인 (${attempts * 100}ms 후)`);
+        const elapsed = attempts * 100;
+        console.log(`✅ JSPrintManager 로드 확인 (${elapsed}ms 후)`);
+        console.log(`🌐 환경: ${isProduction ? '프로덕션' : '개발'} | 호스트: ${currentHost} | 프로토콜: ${window.location?.protocol}`);
         return window.JSPM;
       }
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -77,11 +85,15 @@ export const initializeJSPM = async (serverUrl = null, port = null, useSecure = 
   let JSPMLib = null;
   if (typeof window !== 'undefined' && window.JSPM && window.JSPM.JSPrintManager) {
     console.log('✅ JSPrintManager가 이미 로드되어 있습니다.');
+    console.log(`🌐 환경: ${isProduction ? '프로덕션' : '개발'} | 호스트: ${currentHost}`);
     JSPMLib = window.JSPM;
   } else {
     // 아직 로드되지 않았으면 대기 (스크립트가 비동기로 로드 중일 수 있음)
-    console.log('⏳ JSPrintManager 로드를 기다리는 중...');
-    JSPMLib = await waitForJSPM(5000); // 5초 대기
+    // 배포 환경에서는 네트워크 지연이 있을 수 있으므로 대기 시간 증가
+    const waitTime = isProduction ? 8000 : 5000;
+    console.log(`⏳ JSPrintManager 로드를 기다리는 중... (최대 ${waitTime}ms)`);
+    console.log(`🌐 환경: ${isProduction ? '프로덕션' : '개발'} | 호스트: ${currentHost}`);
+    JSPMLib = await waitForJSPM(waitTime);
   }
   
   // JSPrintManager가 여전히 없는 경우
@@ -90,9 +102,18 @@ export const initializeJSPM = async (serverUrl = null, port = null, useSecure = 
     console.warn('📝 다음을 확인하세요:');
     console.warn('   1. HTML에 JSPrintManager 스크립트가 추가되어 있는지 확인');
     console.warn('   2. 브라우저 개발자 도구의 Network 탭에서 /js/JSPrintManager.js 로드 확인');
-    console.warn('   3. public/js/JSPrintManager.js 파일이 존재하는지 확인');
+    console.warn('   3. 배포 환경에서 public/js/JSPrintManager.js 파일이 빌드에 포함되었는지 확인');
     console.warn('   4. 브라우저 콘솔에서 window.JSPM이 정의되어 있는지 확인: console.log(window.JSPM)');
     console.warn('   5. 브라우저 API를 통해 프린터 목록을 가져오는 방법으로 fallback됩니다.');
+    
+    // 배포 환경에서의 추가 안내
+    if (isProduction || isHttps) {
+      console.warn('💡 배포 환경 안내:');
+      console.warn('   - 사용자 PC에 JSPrintManager Client App이 설치되어 있어야 합니다');
+      console.warn('   - JSPrintManager Service가 실행 중이어야 합니다 (localhost:28443)');
+      console.warn('   - 방화벽에서 포트 28443(WSS)이 허용되어 있어야 합니다');
+    }
+    
     return null;
   }
   
@@ -106,23 +127,34 @@ export const initializeJSPM = async (serverUrl = null, port = null, useSecure = 
       (useSecure ? 28443 : 9595);
     
     // 프로토콜 결정 (WSS 또는 WS)
-    const protocol = useSecure ? 'wss' : 'ws';
+    // 프로덕션 환경(HTTPS)에서는 WSS를 사용하는 것이 안전함
+    // 배포된 웹사이트(https://anniecong.o-r.kr)에서는 WSS 사용
+    const isProduction = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'production';
+    const isHttps = typeof window !== 'undefined' && window.location?.protocol === 'https:';
+    // HTTPS 환경이거나 프로덕션 환경에서는 WSS 강제 사용
+    const shouldUseSecure = isHttps || isProduction || useSecure;
+    const protocol = shouldUseSecure ? 'wss' : 'ws';
+    const actualPort = shouldUseSecure ? 28443 : 9595;
     
     // 서버 URL 결정 (환경 변수 > 매개변수 > 기본값)
     // WebSocket URL 형식: ws://localhost:포트 또는 wss://localhost:포트
+    // 중요: 배포 환경에서도 localhost를 사용 (사용자 PC의 JSPrintManager Client App에 연결)
     let finalServerUrl = serverUrl;
     if (!finalServerUrl) {
       // 환경 변수에서 URL 가져오기
       if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_JSPM_SERVER_URL) {
         finalServerUrl = import.meta.env.VITE_JSPM_SERVER_URL;
       } else {
-        // 기본값: WebSocket URL 구성
-        finalServerUrl = `${protocol}://localhost:${finalPort}`;
+        // 기본값: WebSocket URL 구성 (항상 localhost 사용)
+        // 배포된 웹사이트(https://anniecong.o-r.kr)에서도 사용자 PC의 localhost:28443에 연결
+        finalServerUrl = `${protocol}://localhost:${actualPort}`;
       }
     }
     
     console.log(`🔗 JSPrintManager 서버 URL: ${finalServerUrl}`);
-    console.log(`🔒 WebSocket 프로토콜: ${protocol.toUpperCase()} (포트: ${finalPort})`);
+    console.log(`🔒 WebSocket 프로토콜: ${protocol.toUpperCase()} (포트: ${actualPort})`);
+    console.log(`🌐 환경: ${isProduction ? '프로덕션' : '개발'} (${isHttps ? 'HTTPS' : 'HTTP'})`);
+    console.log(`💡 배포된 웹사이트에서도 사용자 PC의 JSPrintManager Client App(localhost:${actualPort})에 연결합니다.`);
     
     // JSPrintManager 인스턴스 생성
     // JSPMLib는 이미 위에서 확인되었으므로 바로 사용

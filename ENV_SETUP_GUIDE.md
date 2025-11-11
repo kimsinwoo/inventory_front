@@ -53,6 +53,42 @@ VITE_JSPM_SERVER_URL=wss://localhost:28443
 VITE_JSPM_PORT=28443
 ```
 
+## 프로덕션 환경 설정
+
+### 1. .env.production 파일 생성 (선택적)
+
+프로덕션 환경용 환경 변수 파일:
+
+```env
+# 프로덕션 API URL
+VITE_API_URL=https://anniecong.o-r.kr/api
+
+# 환경 모드
+VITE_ENV=production
+
+# JSPrintManager 서버 URL (WebSocket, WSS)
+# 중요: 프로덕션 환경에서도 localhost 사용 (사용자 PC의 JSPrintManager Client App)
+VITE_JSPM_SERVER_URL=wss://localhost:28443
+
+# JSPrintManager WebSocket 포트 (WSS)
+VITE_JSPM_PORT=28443
+```
+
+### 2. 프로덕션 빌드
+
+```bash
+npm run build
+```
+
+빌드 시 `.env.production` 파일의 환경 변수가 사용됩니다.
+
+**중요**: 
+- 프로덕션 환경에서도 `localhost:28443`을 사용합니다
+- 각 사용자의 PC에 JSPrintManager Client App이 설치되어 있어야 합니다
+- 자세한 내용은 [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)를 참고하세요
+
+## 개발 환경 설정 (계속)
+
 ### 2. 개발 서버 재시작
 
 환경 변수를 변경한 후에는 개발 서버를 재시작해야 합니다:

@@ -1,250 +1,362 @@
-# 배포 가이드
+# 배포 환경 가이드
 
-이 문서는 프로젝트를 배포하는 방법을 설명합니다.
+이 문서는 배포된 웹사이트(https://anniecong.o-r.kr)에서 JSPrintManager가 작동하도록 설정하는 방법을 설명합니다.
 
-## 📋 배포 전 체크리스트
+## 배포 아키텍처
 
-- [ ] 환경 변수 설정 완료
-- [ ] 백엔드 서버 URL 확인
-- [ ] CORS 설정 확인
-- [ ] 빌드 테스트 완료
-- [ ] 프로덕션 환경 변수 확인
-
-## 🚀 배포 단계
-
-### 1. 환경 변수 설정
-
-프로덕션 환경에 맞게 `.env` 파일을 수정하세요:
-
-```env
-# 프로덕션 API URL
-VITE_API_URL=https://api.yourdomain.com/api
-
-# 환경 모드
-VITE_ENV=production
+```
+🌐 배포된 웹사이트 (https://anniecong.o-r.kr)
+        │
+        │  (1) 사용자의 브라우저에서 HTTPS 접속
+        ▼
+💻 사용자 PC 브라우저
+        │
+        │  (2) 로컬의 JSPrintManager Client App 연결 시도
+        │      (WSS://localhost:28443)
+        ▼
+🖨️ JSPrintManager Client App (사용자 PC)
+        │
+        │  (3) 실제 프린터 장치로 제어
+        ▼
+🖨️ 물리적 프린터
 ```
 
-**중요**: 환경 변수를 변경한 후에는 반드시 재빌드해야 합니다.
+## 중요 사항
 
-### 2. 빌드 실행
+### 1. 로컬 연결 사용
 
-```bash
-npm run build
-```
+**배포된 웹사이트에서도 `localhost`를 사용합니다!**
 
-빌드된 파일은 `build` 디렉토리에 생성됩니다.
+- 웹사이트는 `https://anniecong.o-r.kr`에 배포됨
+- 하지만 JSPrintManager는 **사용자 PC의 localhost:28443**에 연결
+- 각 사용자의 PC에 JSPrintManager Client App이 설치되어 있어야 함
 
-### 3. 빌드 확인
+### 2. WebSocket 프로토콜
 
-빌드가 성공적으로 완료되었는지 확인하세요:
+- **개발 환경**: `ws://localhost:9595` (HTTP)
+- **프로덕션 환경**: `wss://localhost:28443` (HTTPS/WSS)
+- HTTPS 웹사이트에서는 WSS를 사용해야 함
 
-```bash
-# 빌드 미리보기
-npm run preview
-```
+### 3. 보안 고려사항
 
-브라우저에서 `http://localhost:4173`으로 접속하여 빌드된 애플리케이션을 확인할 수 있습니다.
+- HTTPS 웹사이트에서 WSS 연결 사용 (암호화)
+- 로컬 연결만 사용 (localhost)
+- 방화벽 설정 필요 (포트 28443)
 
-### 4. 배포
+## 배포 전 준비사항
 
-빌드된 `build` 디렉토리의 내용을 웹 서버에 업로드하세요.
+### 1. 빌드 설정 확인
 
-## 🌐 배포 환경별 가이드
-
-### 정적 호스팅 (Static Hosting)
-
-#### Netlify
-
-1. Netlify에 프로젝트 연결
-2. 빌드 설정:
-   - Build command: `npm run build`
-   - Publish directory: `build`
-3. 환경 변수 설정:
-   - Netlify 대시보드 → Site settings → Environment variables
-   - `VITE_API_URL` 추가
-4. 배포
-
-#### Vercel
-
-1. Vercel에 프로젝트 연결
-2. 빌드 설정:
-   - Framework preset: Vite
-   - Build command: `npm run build`
-   - Output directory: `build`
-3. 환경 변수 설정:
-   - Vercel 대시보드 → Project settings → Environment variables
-   - `VITE_API_URL` 추가
-4. 배포
-
-#### GitHub Pages
-
-1. `vite.config.js`에 base 설정 추가:
+`vite.config.js`에서 빌드 설정 확인:
 
 ```javascript
-export default defineConfig({
-  base: '/your-repo-name/', // GitHub 저장소 이름
-  // ... 기타 설정
-})
-```
-
-2. 빌드 및 배포:
-
-```bash
-npm run build
-# build 디렉토리를 gh-pages 브랜치에 푸시
-```
-
-### 서버 배포 (Server Deployment)
-
-#### Nginx
-
-1. 빌드 파일을 서버에 업로드:
-
-```bash
-# 빌드 실행
-npm run build
-
-# 서버에 업로드 (예: /var/www/html)
-scp -r build/* user@server:/var/www/html
-```
-
-2. Nginx 설정:
-
-```nginx
-server {
-    listen 80;
-    server_name yourdomain.com;
-    root /var/www/html;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # API 프록시 (선택사항)
-    location /api {
-        proxy_pass http://localhost:4000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
+build: {
+  outDir: 'build',
+  copyPublicDir: true, // public 폴더 파일 복사 보장
 }
 ```
 
-3. Nginx 재시작:
+### 2. public 폴더 파일 확인
+
+다음 파일이 `public/js/` 폴더에 있는지 확인:
+
+```
+public/
+  └── js/
+      └── JSPrintManager.js
+```
+
+**빌드 시 이 파일이 자동으로 `build/js/JSPrintManager.js`로 복사됩니다.**
+
+### 3. 환경 변수 설정 (선택적)
+
+프로덕션 환경 변수는 빌드 시점에 설정됩니다:
 
 ```bash
-sudo nginx -t
-sudo systemctl restart nginx
+# .env.production (선택적)
+VITE_API_URL=https://anniecong.o-r.kr/api
+VITE_JSPM_SERVER_URL=wss://localhost:28443
+VITE_JSPM_PORT=28443
 ```
 
-#### Apache
+## 빌드 및 배포
 
-1. 빌드 파일을 서버에 업로드
-2. `.htaccess` 파일 생성:
+### 1. 프로덕션 빌드
 
-```apache
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  RewriteRule ^index\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . /index.html [L]
-</IfModule>
+```bash
+npm run build
 ```
 
-3. Apache 재시작
+빌드 결과:
+- `build/` 폴더에 프로덕션 파일 생성
+- `build/js/JSPrintManager.js` 파일 포함 확인
 
-## 🔒 보안 설정
+### 2. 빌드 결과 확인
 
-### HTTPS 설정
+```bash
+# 빌드 폴더 확인
+ls build/js/JSPrintManager.js
 
-프로덕션 환경에서는 반드시 HTTPS를 사용해야 합니다:
-
-1. SSL 인증서 설치 (Let's Encrypt 등)
-2. HTTP → HTTPS 리다이렉트 설정
-3. 보안 헤더 설정
-
-### CORS 설정
-
-백엔드 서버에서 CORS 설정이 올바르게 되어 있어야 합니다:
-
-```javascript
-// 백엔드 예시 (Express)
-app.use(cors({
-  origin: 'https://yourdomain.com',
-  credentials: true
-}));
+# 빌드 결과 확인
+ls -la build/
 ```
 
-## 🔍 배포 후 확인사항
+### 3. 배포
 
-### 1. API 연결 확인
+빌드된 `build/` 폴더를 웹 서버에 배포:
 
-브라우저 개발자 도구의 Network 탭에서 API 요청이 올바르게 전송되는지 확인하세요.
-
-### 2. 인증 확인
-
-로그인 기능이 정상적으로 작동하는지 확인하세요.
-
-### 3. 환경 변수 확인
-
-브라우저 콘솔에서 API Base URL이 올바르게 설정되어 있는지 확인하세요:
-
-```javascript
-// 개발 환경에서만 로그가 출력됩니다
-console.log('🔗 API Base URL:', API_BASE_URL);
+```bash
+# 예: Nginx, Apache, 또는 다른 웹 서버
+cp -r build/* /var/www/html/
 ```
 
-### 4. 에러 확인
+## 사용자 측 설정
 
-브라우저 콘솔과 네트워크 탭에서 에러가 발생하지 않는지 확인하세요.
+### 1. JSPrintManager Client App 설치
 
-## 🐛 문제 해결
+각 사용자의 PC에 JSPrintManager Client App을 설치해야 합니다:
 
-### 빌드 실패
+1. [JSPrintManager 공식 웹사이트](https://www.neodynamic.com/products/printing/js-print-manager/)에서 다운로드
+2. 설치 프로그램 실행
+3. Windows 서비스로 자동 등록
 
-1. **의존성 확인**: `npm install`로 의존성을 다시 설치하세요
-2. **Node 버전 확인**: Node.js 버전이 호환되는지 확인하세요
-3. **에러 메시지 확인**: 빌드 에러 메시지를 자세히 확인하세요
+### 2. JSPrintManager Service 실행
 
-### API 연결 실패
+JSPrintManager Service가 실행 중이어야 합니다:
 
-1. **환경 변수 확인**: `VITE_API_URL`이 올바르게 설정되어 있는지 확인하세요
-2. **CORS 설정 확인**: 백엔드 서버의 CORS 설정을 확인하세요
-3. **네트워크 확인**: 백엔드 서버가 실행 중인지 확인하세요
+```bash
+# 서비스 상태 확인
+net start JSPrintManager
 
-### 세션 인증 실패
+# 또는 Windows 서비스 관리자에서 확인
+# "JSPrintManager Service" 찾기
+```
 
-1. **쿠키 설정 확인**: 브라우저 개발자 도구에서 쿠키가 설정되는지 확인하세요
-2. **도메인 확인**: 프론트엔드와 백엔드가 같은 도메인에서 실행되는지 확인하세요
-3. **CORS 설정 확인**: 백엔드 서버의 CORS 설정에서 `credentials: true`가 설정되어 있는지 확인하세요
+### 3. 방화벽 설정
 
-## 📊 모니터링
+Windows 방화벽에서 포트 28443(WSS)을 허용해야 합니다:
 
-배포 후 다음 사항을 모니터링하세요:
+1. **Windows 방화벽 설정** 열기
+2. **고급 설정** 선택
+3. **인바운드 규칙** → **새 규칙**
+4. **포트** 선택 → **TCP** → **28443** 입력
+5. **연결 허용** 선택
+6. **이름**: "JSPrintManager WSS"
 
-- 에러 로그
-- API 응답 시간
-- 사용자 세션
-- 페이지 로드 시간
+### 4. 브라우저 확인
 
-## 🔄 업데이트 배포
+브라우저에서 웹사이트 접속:
 
-애플리케이션을 업데이트할 때:
+1. `https://anniecong.o-r.kr` 접속
+2. 브라우저 개발자 도구 열기 (F12)
+3. **Network 탭**에서 `/js/JSPrintManager.js` 로드 확인
+4. **Console 탭**에서 JSPrintManager 로드 메시지 확인
 
-1. 코드 변경
-2. 환경 변수 확인 (필요시 수정)
-3. 빌드 실행: `npm run build`
-4. 빌드 테스트: `npm run preview`
-5. 배포
+## 작동 확인
 
-## 📝 추가 리소스
+### 1. 브라우저 콘솔 확인
 
-- [ENV_SETUP_GUIDE.md](./ENV_SETUP_GUIDE.md) - 환경 변수 설정 가이드
-- [FRONTEND_API_GUIDE.md](./FRONTEND_API_GUIDE.md) - API 사용 가이드
-- [Vite 배포 가이드](https://vitejs.dev/guide/static-deploy.html)
+정상 작동 시 다음과 같은 메시지가 표시됩니다:
 
+```
+✅ JSPrintManager 로드 확인 (100ms 후)
+🌐 환경: 프로덕션 | 호스트: anniecong.o-r.kr | 프로토콜: https:
+🔗 JSPrintManager 서버 URL: wss://localhost:28443
+🔒 WebSocket 프로토콜: WSS (포트: 28443)
+💡 배포된 웹사이트에서도 사용자 PC의 JSPrintManager Client App(localhost:28443)에 연결합니다.
+✅ JSPrintManager 초기화 완료
+✅ JSPrintManager 준비 완료
+```
+
+### 2. 프린터 목록 확인
+
+프린터 목록이 정상적으로 표시되는지 확인:
+
+```
+✅ JSPrintManager를 통해 프린터 목록 가져오기 성공: ["프린터1", "프린터2", ...]
+```
+
+### 3. WebSocket 연결 확인
+
+브라우저 개발자 도구의 **Network 탭**에서:
+
+1. **WS** 또는 **WSS** 필터 선택
+2. `wss://localhost:28443` 연결 확인
+3. 연결 상태가 **101 Switching Protocols**인지 확인
+
+## 문제 해결
+
+### 문제 1: JSPrintManager가 로드되지 않음
+
+**증상**:
+```
+⚠️ JSPrintManager가 로드되지 않았습니다.
+```
+
+**해결 방법**:
+
+1. **빌드 파일 확인**:
+   ```bash
+   ls build/js/JSPrintManager.js
+   ```
+
+2. **웹 서버 설정 확인**:
+   - `build/js/JSPrintManager.js` 파일이 정적 파일로 제공되는지 확인
+   - 경로가 올바른지 확인 (`/js/JSPrintManager.js`)
+
+3. **브라우저 캐시 삭제**:
+   - 브라우저 캐시 삭제
+   - 하드 새로고침 (Ctrl + Shift + R)
+
+4. **CDN Fallback 확인**:
+   - 로컬 파일이 실패하면 자동으로 CDN에서 로드됨
+   - Network 탭에서 CDN 로드 확인
+
+### 문제 2: WebSocket 연결 실패
+
+**증상**:
+```
+⚠️ JSPrintManager 초기화 실패
+WebSocket 연결 오류
+```
+
+**해결 방법**:
+
+1. **JSPrintManager Service 확인**:
+   ```bash
+   net start JSPrintManager
+   ```
+
+2. **포트 확인**:
+   ```bash
+   netstat -an | findstr 28443
+   ```
+   - 포트가 LISTENING 상태인지 확인
+
+3. **방화벽 확인**:
+   - Windows 방화벽에서 포트 28443 허용 확인
+   - 바이러스 백신 소프트웨어에서도 허용 확인
+
+4. **서비스 재시작**:
+   ```bash
+   net stop JSPrintManager
+   net start JSPrintManager
+   ```
+
+### 문제 3: HTTPS에서 WSS 연결 실패
+
+**증상**:
+```
+Mixed Content 오류
+WSS 연결 실패
+```
+
+**해결 방법**:
+
+1. **프로토콜 확인**:
+   - HTTPS 웹사이트에서는 WSS를 사용해야 함
+   - 코드에서 자동으로 WSS로 전환됨
+
+2. **포트 확인**:
+   - WSS 포트: 28443
+   - WS 포트: 9595 (HTTPS에서는 사용하지 않음)
+
+3. **환경 변수 확인**:
+   ```bash
+   # .env.production
+   VITE_JSPM_SERVER_URL=wss://localhost:28443
+   VITE_JSPM_PORT=28443
+   ```
+
+### 문제 4: 프린터 목록이 비어있음
+
+**증상**:
+```
+프린터 목록: []
+```
+
+**해결 방법**:
+
+1. **JSPrintManager Service 확인**:
+   - 서비스가 실행 중인지 확인
+   - 시스템 트레이에서 JSPrintManager 아이콘 확인
+
+2. **프린터 드라이버 확인**:
+   - Windows에서 프린터가 설치되어 있는지 확인
+   - 프린터 드라이버가 올바르게 설치되어 있는지 확인
+
+3. **Fallback 확인**:
+   - JSPrintManager가 실패하면 브라우저 API 사용
+   - 브라우저 API는 제한적인 프린터 목록만 제공
+
+## 배포 체크리스트
+
+### 빌드 전
+
+- [ ] `public/js/JSPrintManager.js` 파일 존재 확인
+- [ ] `vite.config.js` 빌드 설정 확인
+- [ ] 환경 변수 설정 (선택적)
+
+### 빌드
+
+- [ ] `npm run build` 실행
+- [ ] `build/js/JSPrintManager.js` 파일 포함 확인
+- [ ] 빌드 오류 없음 확인
+
+### 배포
+
+- [ ] `build/` 폴더를 웹 서버에 배포
+- [ ] 정적 파일 서비스 설정 확인
+- [ ] HTTPS 설정 확인
+
+### 사용자 측
+
+- [ ] JSPrintManager Client App 설치 안내
+- [ ] 방화벽 설정 안내
+- [ ] 서비스 실행 확인 안내
+
+## 환경 변수 참고
+
+### 개발 환경
+
+```env
+# .env.development
+VITE_API_URL=http://localhost:4000/api
+VITE_JSPM_SERVER_URL=ws://localhost:9595
+VITE_JSPM_PORT=9595
+```
+
+### 프로덕션 환경
+
+```env
+# .env.production
+VITE_API_URL=https://anniecong.o-r.kr/api
+VITE_JSPM_SERVER_URL=wss://localhost:28443
+VITE_JSPM_PORT=28443
+```
+
+**중요**: 프로덕션 환경에서도 `localhost`를 사용합니다. 사용자 PC의 JSPrintManager Client App에 연결하기 때문입니다.
+
+## 추가 리소스
+
+- [JSPRINTMANAGER_SETUP.md](./JSPRINTMANAGER_SETUP.md) - JSPrintManager 설정 가이드
+- [JSPM_WEBSOCKET_GUIDE.md](./JSPM_WEBSOCKET_GUIDE.md) - WebSocket 연결 가이드
+- [JSPM_SERVER_GUIDE.md](./JSPM_SERVER_GUIDE.md) - JSPM 서버 실행 가이드
+- [PRINTER_WITHOUT_BACKEND.md](./PRINTER_WITHOUT_BACKEND.md) - 백엔드 없이 프린터 사용 가이드
+
+## 요약
+
+✅ **배포된 웹사이트(https://anniecong.o-r.kr)에서도 JSPrintManager가 작동합니다**
+
+**작동 원리**:
+1. 웹사이트는 HTTPS로 배포됨
+2. 사용자 브라우저에서 웹사이트 접속
+3. JSPrintManager 스크립트가 로드됨 (`/js/JSPrintManager.js`)
+4. JSPrintManager가 사용자 PC의 localhost:28443(WSS)에 연결
+5. JSPrintManager Client App이 실제 프린터를 제어
+
+**필수 조건**:
+- 사용자 PC에 JSPrintManager Client App 설치
+- JSPrintManager Service 실행 중
+- 방화벽에서 포트 28443 허용
+- 빌드에 `public/js/JSPrintManager.js` 파일 포함
