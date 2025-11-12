@@ -1,28 +1,46 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { workOrdersAPI } from "../../api";
 
 const Factory2OrderList = () => {
     const [filterType, setFilterType] = useState('전체');
+    const [workOrders, setWorkOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    const workOrders = [
-    {
-        id: 'WIP001',
-        title: '애니콩 펫베이커리',
-        product: '애니콩 펫베이커리 - 10개',
-        material: '닭고기 (가슴살)',
-        quantity: '50 kg',
-        deadlineTime: '60분',
-        manager: '김전처리',
-    },
-    {
-        id: 'WIP002',
-        title: '콩부장 쿠키',
-        product: '콩부장 쿠키 - 150개',
-        material: '콩',
-        quantity: '100 kg',
-        deadlineTime: '90분',
-        manager: '나작업',
-    },
-    ];
+    useEffect(() => {
+        loadWorkOrders();
+    }, [filterType]);
+
+    const loadWorkOrders = async () => {
+        try {
+            setLoading(true);
+            const params = {};
+            if (filterType === '내 작업') {
+                // 현재 사용자의 작업만 필터링 (나중에 구현)
+                // params.user_id = currentUser.id;
+            }
+            const response = await workOrdersAPI.getWorkOrders(params);
+            const data = response.data?.data || response.data || [];
+            const ordersList = Array.isArray(data) ? data : [];
+            
+            // API 데이터를 컴포넌트 형식에 맞게 변환
+            const formattedOrders = ordersList.map(order => ({
+                id: order.id || `WO-${order.id}`,
+                title: order.title || '작업 지시서',
+                product: order.work_content || order.product_name || `${order.title || '작업'} - ${order.quantity || 0}개`,
+                material: order.material_name || order.material || '-',
+                quantity: order.quantity ? `${order.quantity} ${order.unit || 'kg'}` : '-',
+                deadlineTime: order.scheduled_date ? order.scheduled_date.split('T')[0] : order.deadline_time || '-',
+                manager: order.manager?.full_name || order.manager_name || order.manager || '-',
+            }));
+            
+            setWorkOrders(formattedOrders);
+        } catch (error) {
+            console.error('제조 지시서 목록 로드 실패:', error);
+            setWorkOrders([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
     <div>
@@ -42,8 +60,13 @@ const Factory2OrderList = () => {
             </select>
         </div>
 
-        <div className="space-y-6">
-            {workOrders.map((order) => (
+        {loading ? (
+            <div className="text-center py-8 text-gray-500">불러오는 중...</div>
+        ) : workOrders.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">제조 지시서가 없습니다.</div>
+        ) : (
+            <div className="space-y-6">
+                {workOrders.map((order) => (
             <div key={order.id} className="bg-white rounded-lg shadow-sm p-6">
                 <div className="flex justify-between items-start mb-4">
                 <div>
@@ -74,8 +97,9 @@ const Factory2OrderList = () => {
                 </div>
                 </div>
             </div>
-            ))}
-        </div>
+                ))}
+            </div>
+        )}
     </div>
     </div>
     );

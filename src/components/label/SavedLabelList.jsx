@@ -98,11 +98,48 @@ const SavedLabelList = () => {
       const response = await labelAPI.getTemplates({ page: 1, limit: 200 });
       
       if (!signal.aborted && isMounted) {
-        // 응답 데이터 파싱
-        const templateList = Array.isArray(response.data)
-          ? response.data
-          : response.data?.data || response.data?.templates || [];
-        setTemplates(templateList);
+        // 응답 데이터 파싱 - API 응답 구조에 맞게 수정
+        // response.data는 { ok: true, message: "...", data: [...], meta: {...} } 형태
+        const responseData = response.data;
+        let templateList = [];
+        
+        if (responseData) {
+          // data 필드가 배열인 경우
+          if (Array.isArray(responseData.data)) {
+            templateList = responseData.data;
+          } else if (Array.isArray(responseData)) {
+            // response.data 자체가 배열인 경우
+            templateList = responseData;
+          } else if (responseData.templates && Array.isArray(responseData.templates)) {
+            templateList = responseData.templates;
+          }
+        }
+        
+        // snake_case 필드를 camelCase로 변환 (호환성 유지)
+        const formattedTemplates = templateList.map((template) => ({
+          id: template.id,
+          templateId: template.id,
+          itemId: template.item_id || template.itemId,
+          itemName: template.item_name || template.itemName || null,
+          labelType: template.label_type || template.labelType || 'large',
+          storageCondition: template.storage_condition || template.storageCondition || '냉동',
+          registrationNumber: template.registration_number || template.registrationNumber || '',
+          categoryAndForm: template.category_and_form || template.categoryAndForm || '',
+          ingredients: template.ingredients || '',
+          rawMaterials: template.raw_materials || template.rawMaterials || '',
+          actualWeight: template.actual_weight || template.actualWeight || '',
+          printerName: template.printer_name || template.printerName || null,
+          printCount: template.print_count || template.printCount || 1,
+          printStatus: template.print_status || template.printStatus || 'PENDING',
+          errorMessage: template.error_message || template.errorMessage || null,
+          createdAt: template.createdAt || template.created_at || '',
+          updatedAt: template.updatedAt || template.updated_at || '',
+          // 원본 데이터도 유지 (호환성)
+          ...template,
+        }));
+        
+        console.log('✅ 템플릿 목록 로드 완료:', formattedTemplates);
+        setTemplates(formattedTemplates);
       }
     } catch (error) {
       if (!signal.aborted && isMounted && error.name !== 'AbortError') {
@@ -196,20 +233,21 @@ const SavedLabelList = () => {
       const templateData = templateResponse.data?.data || templateResponse.data || template;
       
       // 프린트 API 호출 (템플릿 데이터 + 날짜 사용)
+      // snake_case와 camelCase 모두 지원
       await labelAPI.printLabel({
-        templateType: templateData.labelType || template.labelType || 'large',
-        itemId: templateData.itemId || template.itemId || '',
+        templateType: templateData.label_type || templateData.labelType || template.label_type || template.labelType || 'large',
+        itemId: templateData.item_id || templateData.itemId || template.item_id || template.itemId || '',
         manufactureDate: printDates.manufactureDate,
         expiryDate: printDates.expiryDate,
         printerName: selectedPrinter,
         printCount: printCount,
-        productName: templateData.itemName || templateData.productName || template.itemName || '',
-        storageCondition: templateData.storageCondition || template.storageCondition || '냉동',
-        registrationNumber: templateData.registrationNumber || template.registrationNumber || '',
-        categoryAndForm: templateData.categoryAndForm || template.categoryAndForm || '',
+        productName: templateData.item_name || templateData.itemName || template.item_name || template.itemName || '',
+        storageCondition: templateData.storage_condition || templateData.storageCondition || template.storage_condition || template.storageCondition || '냉동',
+        registrationNumber: templateData.registration_number || templateData.registrationNumber || template.registration_number || template.registrationNumber || '',
+        categoryAndForm: templateData.category_and_form || templateData.categoryAndForm || template.category_and_form || template.categoryAndForm || '',
         ingredients: templateData.ingredients || template.ingredients || '',
-        rawMaterials: templateData.rawMaterials || template.rawMaterials || '',
-        actualWeight: templateData.actualWeight || template.actualWeight || '',
+        rawMaterials: templateData.raw_materials || templateData.rawMaterials || template.raw_materials || template.rawMaterials || '',
+        actualWeight: templateData.actual_weight || templateData.actualWeight || template.actual_weight || template.actualWeight || '',
       });
       
       alert(`${printCount}개가 성공적으로 인쇄되었습니다.`);
@@ -423,27 +461,35 @@ const SavedLabelList = () => {
                   </td>
                 </tr>
               ) : (
-                templates.map((template, idx) => (
-                  <tr key={template.id || template.templateId || idx} className="transition-colors hover:bg-gray-50/50">
-                    <td className="px-4 py-4 text-sm font-medium text-gray-900">{template.id || template.templateId}</td>
-                    <td className="px-4 py-4 text-sm text-gray-700">{template.labelType || '-'}</td>
-                    <td className="px-4 py-4 text-sm text-gray-900">{template.itemName || template.productName || '-'}</td>
-                    <td className="px-4 py-4 text-sm text-gray-700">{template.storageCondition || '-'}</td>
-                    <td className="px-4 py-4 text-sm text-gray-700">{template.registrationNumber || '-'}</td>
-                    <td className="px-4 py-4">
-                      <button
-                        onClick={() => handlePrintTemplate(template)}
-                        disabled={printingTemplateId === (template.id || template.templateId) || !selectedPrinter}
-                        className="flex items-center space-x-1 rounded-xl bg-[#674529] hover:bg-[#553821] px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Printer className="h-4 w-4" />
-                        <span>
-                          {printingTemplateId === (template.id || template.templateId) ? '인쇄 중...' : '인쇄'}
-                        </span>
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                templates.map((template, idx) => {
+                  // item_name이 null인 경우 item_id로 표시하거나 품목 정보를 가져올 수 있음
+                  const displayItemName = template.itemName || template.item_name || (template.itemId ? `품목 ID: ${template.itemId}` : '-');
+                  const displayLabelType = template.labelType || template.label_type || '-';
+                  const displayStorageCondition = template.storageCondition || template.storage_condition || '-';
+                  const displayRegistrationNumber = template.registrationNumber || template.registration_number || '-';
+                  
+                  return (
+                    <tr key={template.id || template.templateId || idx} className="transition-colors hover:bg-gray-50/50">
+                      <td className="px-4 py-4 text-sm font-medium text-gray-900">{template.id || template.templateId || '-'}</td>
+                      <td className="px-4 py-4 text-sm text-gray-700">{displayLabelType}</td>
+                      <td className="px-4 py-4 text-sm text-gray-900">{displayItemName}</td>
+                      <td className="px-4 py-4 text-sm text-gray-700">{displayStorageCondition}</td>
+                      <td className="px-4 py-4 text-sm text-gray-700">{displayRegistrationNumber}</td>
+                      <td className="px-4 py-4">
+                        <button
+                          onClick={() => handlePrintTemplate(template)}
+                          disabled={printingTemplateId === (template.id || template.templateId) || !selectedPrinter}
+                          className="flex items-center space-x-1 rounded-xl bg-[#674529] hover:bg-[#553821] px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Printer className="h-4 w-4" />
+                          <span>
+                            {printingTemplateId === (template.id || template.templateId) ? '인쇄 중...' : '인쇄'}
+                          </span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

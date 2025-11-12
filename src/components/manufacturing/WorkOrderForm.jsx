@@ -1,23 +1,137 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { workOrdersAPI, bomsAPI, authAPI } from '../../api';
 
 const WorkOrderForm = () => {
-  const [selectedManager, setSelectedManager] = useState('');
-  const [selectedManagerBom, setSelectedManagerBom] = useState('');
+  const [bomOptions, setBomOptions] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  // BOM 선택 옵션
-  const bomOptions = ['콩부장 쿠키', '맛있는 닭기슴살', '강아지 간식', '단호박과자'];
+  // 폼 데이터 - 작업 내용
+  const [workFormData, setWorkFormData] = useState({
+    title: '',
+    workContent: '세척',
+    materialName: '',
+    quantity: '',
+    scheduledDate: '',
+    managerId: '',
+  });
 
-  // 담당자 선택 옵션
-  const managerOptions = ['대표', '이사', '팀장', '직원', '알바'];
+  // 폼 데이터 - BOM
+  const [bomFormData, setBomFormData] = useState({
+    bomId: '',
+    quantity: '1',
+    scheduledDate: '',
+    managerId: '',
+  });
 
-  // 담당자별 이름 매핑
-  const namesByManager = {
-    '대표': ['김대표', '박대표', '이대표'],
-    '이사': ['최이사', '정이사', '강이사'],
-    '팀장': ['나팀장', '윤팀장', '송팀장'],
-    '직원': ['홍직원', '조직원', '한직원'],
-    '알바': ['김알바', '이알바', '박알바']
+  useEffect(() => {
+    loadBoms();
+    loadUsers();
+  }, []);
+
+  const loadBoms = async () => {
+    try {
+      const response = await bomsAPI.getBoms();
+      const data = response.data?.data || response.data || [];
+      const bomsList = Array.isArray(data) ? data : [];
+      setBomOptions(bomsList.map(bom => ({
+        id: bom.id,
+        name: bom.name || bom.product_name || `BOM-${bom.id}`,
+      })));
+    } catch (error) {
+      console.error('BOM 목록 로드 실패:', error);
+      setBomOptions([]);
+    }
   };
+
+  const loadUsers = async () => {
+    try {
+      const response = await authAPI.getUsers();
+      const data = response.data?.data || response.data || [];
+      const usersList = Array.isArray(data) ? data : [];
+      setUsers(usersList);
+    } catch (error) {
+      console.error('사용자 목록 로드 실패:', error);
+      setUsers([]);
+    }
+  };
+
+  const handleWorkInputChange = (field, value) => {
+    setWorkFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleBomInputChange = (field, value) => {
+    setBomFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleWorkSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      if (!workFormData.title || !workFormData.materialName || !workFormData.quantity || !workFormData.managerId) {
+        alert('모든 필수 필드를 입력해주세요.');
+        return;
+      }
+      const workData = {
+        title: workFormData.title,
+        work_content: workFormData.workContent,
+        material_name: workFormData.materialName,
+        quantity: parseFloat(workFormData.quantity) || 0,
+        scheduled_date: workFormData.scheduledDate,
+        manager_id: parseInt(workFormData.managerId),
+      };
+      await workOrdersAPI.createWorkOrder(workData);
+      alert('작업 지시서가 등록되었습니다.');
+      // 폼 초기화
+      setWorkFormData({
+        title: '',
+        workContent: '세척',
+        materialName: '',
+        quantity: '',
+        scheduledDate: '',
+        managerId: '',
+      });
+    } catch (error) {
+      console.error('작업 지시서 등록 실패:', error);
+      alert('작업 지시서 등록에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBomSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      if (!bomFormData.bomId || !bomFormData.managerId) {
+        alert('BOM과 담당자를 선택해주세요.');
+        return;
+      }
+      const bomData = {
+        bom_id: parseInt(bomFormData.bomId),
+        quantity: parseInt(bomFormData.quantity) || 1,
+        scheduled_date: bomFormData.scheduledDate,
+        manager_id: parseInt(bomFormData.managerId),
+      };
+      await workOrdersAPI.createWorkOrder(bomData);
+      alert('BOM 작업 지시서가 등록되었습니다.');
+      // 폼 초기화
+      setBomFormData({
+        bomId: '',
+        quantity: '1',
+        scheduledDate: '',
+        managerId: '',
+      });
+    } catch (error) {
+      console.error('BOM 작업 지시서 등록 실패:', error);
+      alert('BOM 작업 지시서 등록에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 사용자 목록에서 고유한 position 목록 추출
+  const positions = [...new Set(users.map(user => user.position).filter(Boolean))];
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
@@ -28,20 +142,30 @@ const WorkOrderForm = () => {
         <div className="border border-gray-200 rounded-lg p-5">
           <h4 className="text-base font-semibold text-[#674529] mb-4 text-center">작업 내용</h4>
 
-          <div className="space-y-3">
+          <form onSubmit={handleWorkSubmit} className="space-y-3">
             <div className="flex items-center gap-4">
               <label className="w-24 text-sm text-gray-700">제목</label>
               <input
                 type="text"
                 placeholder="Title"
+                value={workFormData.title}
+                onChange={(e) => handleWorkInputChange('title', e.target.value)}
                 className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+                required
               />
             </div>
 
             <div className="flex items-center gap-4">
               <label className="w-24 text-sm text-gray-700">작업 내용</label>
-              <select className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400">
-                <option>세척</option>
+              <select
+                value={workFormData.workContent}
+                onChange={(e) => handleWorkInputChange('workContent', e.target.value)}
+                className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+              >
+                <option value="세척">세척</option>
+                <option value="전처리">전처리</option>
+                <option value="제조">제조</option>
+                <option value="포장">포장</option>
               </select>
             </div>
 
@@ -50,7 +174,10 @@ const WorkOrderForm = () => {
               <input
                 type="text"
                 placeholder="딸기"
+                value={workFormData.materialName}
+                onChange={(e) => handleWorkInputChange('materialName', e.target.value)}
                 className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+                required
               />
             </div>
 
@@ -58,9 +185,12 @@ const WorkOrderForm = () => {
               <label className="w-24 text-sm text-gray-700">작업량</label>
               <div className="flex-1 flex items-center gap-2">
                 <input
-                  type="text"
+                  type="number"
                   placeholder="100"
+                  value={workFormData.quantity}
+                  onChange={(e) => handleWorkInputChange('quantity', e.target.value)}
                   className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+                  required
                 />
                 <span className="text-sm text-gray-600">kg</span>
               </div>
@@ -70,7 +200,8 @@ const WorkOrderForm = () => {
               <label className="w-24 text-sm text-gray-700">작업 예정일</label>
               <input
                 type="date"
-                defaultValue="2025-10-21"
+                value={workFormData.scheduledDate}
+                onChange={(e) => handleWorkInputChange('scheduledDate', e.target.value)}
                 className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
               />
             </div>
@@ -78,62 +209,49 @@ const WorkOrderForm = () => {
             <div className="flex items-center gap-4">
               <label className="w-24 text-sm text-gray-700">담당자</label>
               <select
-                value={selectedManager}
-                onChange={(e) => setSelectedManager(e.target.value)}
+                value={workFormData.managerId}
+                onChange={(e) => handleWorkInputChange('managerId', e.target.value)}
                 className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+                required
               >
                 <option value="">담당자 선택</option>
-                {managerOptions.map((manager) => (
-                  <option key={manager} value={manager}>
-                    {manager}
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.full_name || user.username} ({user.position || 'N/A'})
                   </option>
                 ))}
               </select>
             </div>
 
-            {selectedManager && (
-              <div className="flex items-center gap-4">
-                <label className="w-24 text-sm text-gray-700">이름</label>
-                <select className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400">
-                  <option value="">이름 선택</option>
-                  {namesByManager[selectedManager]?.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             <div className="flex justify-center pt-2">
-              <button className="px-8 py-2 bg-[#674529] text-white text-sm rounded hover:bg-[#553821] transition-colors">
-                작업 지시서 등록
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-8 py-2 bg-[#674529] text-white text-sm rounded hover:bg-[#553821] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? '등록 중...' : '작업 지시서 등록'}
               </button>
             </div>
-          </div>
+          </form>
         </div>
 
         {/* 우측 - BOM */}
         <div className="border border-gray-200 rounded-lg p-5">
           <h4 className="text-base font-semibold text-[#674529] mb-4 text-center">BOM</h4>
 
-          <div className="space-y-3">
-            <div className="flex items-center gap-4">
-              <label className="w-24 text-sm text-gray-700">제목</label>
-              <input
-                type="text"
-                placeholder="Title"
-                className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
-              />
-            </div>
-
+          <form onSubmit={handleBomSubmit} className="space-y-3">
             <div className="flex items-center gap-4">
               <label className="w-24 text-sm text-gray-700">BOM</label>
-              <select className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400">
+              <select
+                value={bomFormData.bomId}
+                onChange={(e) => handleBomInputChange('bomId', e.target.value)}
+                className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+                required
+              >
                 <option value="">BOM 선택</option>
                 {bomOptions.map((bom) => (
-                  <option key={bom} value={bom}>
-                    {bom}
+                  <option key={bom.id} value={bom.id}>
+                    {bom.name}
                   </option>
                 ))}
               </select>
@@ -142,9 +260,12 @@ const WorkOrderForm = () => {
             <div className="flex items-center gap-4">
               <label className="w-24 text-sm text-gray-700">수량</label>
               <input
-                type="text"
-                defaultValue="1"
+                type="number"
+                value={bomFormData.quantity}
+                onChange={(e) => handleBomInputChange('quantity', e.target.value)}
                 className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+                min="1"
+                required
               />
             </div>
 
@@ -152,7 +273,8 @@ const WorkOrderForm = () => {
               <label className="w-24 text-sm text-gray-700">작업 예정일</label>
               <input
                 type="date"
-                defaultValue="2025-10-21"
+                value={bomFormData.scheduledDate}
+                onChange={(e) => handleBomInputChange('scheduledDate', e.target.value)}
                 className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
               />
             </div>
@@ -160,39 +282,30 @@ const WorkOrderForm = () => {
             <div className="flex items-center gap-4">
               <label className="w-24 text-sm text-gray-700">담당자</label>
               <select
-                value={selectedManagerBom}
-                onChange={(e) => setSelectedManagerBom(e.target.value)}
+                value={bomFormData.managerId}
+                onChange={(e) => handleBomInputChange('managerId', e.target.value)}
                 className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+                required
               >
                 <option value="">담당자 선택</option>
-                {managerOptions.map((manager) => (
-                  <option key={manager} value={manager}>
-                    {manager}
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.full_name || user.username} ({user.position || 'N/A'})
                   </option>
                 ))}
               </select>
             </div>
 
-            {selectedManagerBom && (
-              <div className="flex items-center gap-4">
-                <label className="w-24 text-sm text-gray-700">이름</label>
-                <select className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400">
-                  <option value="">이름 선택</option>
-                  {namesByManager[selectedManagerBom]?.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             <div className="flex justify-center pt-2">
-              <button className="px-8 py-2 bg-[#674529] text-white text-sm rounded hover:bg-[#553821] transition-colors">
-                작업 지시서 등록
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-8 py-2 bg-[#674529] text-white text-sm rounded hover:bg-[#553821] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? '등록 중...' : '작업 지시서 등록'}
               </button>
             </div>
-          </div>
+          </form>
         </div>
       </div>
     </div>

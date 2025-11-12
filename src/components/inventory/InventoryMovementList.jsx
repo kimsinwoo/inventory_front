@@ -1,8 +1,6 @@
-import { useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
-import { fetchInventoryMovements } from "../../store/modules/inventory/actions";
-import { selectInventoryMovements } from "../../store/modules/inventory/selectors";
+import { inventoryTransactionsAPI } from "../../api";
 
 const typeBadge = (type) => {
   if (type === "입고") return "bg-blue-50 text-blue-600";
@@ -20,13 +18,48 @@ const qtyColor = (q) => {
 };
 
 export default function InventoryMovementList() {
-  const dispatch = useDispatch();
-  const rows = useSelector(selectInventoryMovements) || [];
-  const loading = useSelector((state) => state.inventory.inventoryMovements.loading);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    dispatch(fetchInventoryMovements.request({ page: 1, limit: 50 }));
-  }, [dispatch]);
+    const loadMovements = async () => {
+      try {
+        setLoading(true);
+        const response = await inventoryTransactionsAPI.getTransactions({ page: 1, limit: 50 });
+        const data = response.data?.data || response.data || [];
+        const transactions = Array.isArray(data) ? data : [];
+        
+        // API 데이터를 컴포넌트 형식에 맞게 변환
+        const formattedRows = transactions.map((t) => {
+          const typeMap = {
+            'RECEIVE': '입고',
+            'ISSUE': '소모',
+            'TRANSFER': '이동',
+          };
+          return {
+            time: t.created_at ? new Date(t.created_at).toLocaleString('ko-KR') : '',
+            type: typeMap[t.type] || t.type,
+            category: t.Item?.name || t.item_name || '',
+            code: t.Item?.code || t.item_code || '',
+            lotNumber: t.lot_number || '',
+            quantity: t.type === 'RECEIVE' ? `+${t.quantity || 0}` : `-${t.quantity || 0}`,
+            fromLocation: t.sourceFactoryId ? `공장${t.sourceFactoryId}` : t.from_location || '',
+            toLocation: t.destFactoryId ? `공장${t.destFactoryId}` : t.to_location || t.Factory?.name || '',
+            manager: t.User?.username || t.actor_name || '',
+            note: t.note || '',
+          };
+        });
+        
+        setRows(formattedRows);
+      } catch (error) {
+        console.error('재고 이동 이력 로드 실패:', error);
+        setRows([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadMovements();
+  }, []);
 
   return (
     <div className="rounded-xl bg-white p-6 shadow-sm">

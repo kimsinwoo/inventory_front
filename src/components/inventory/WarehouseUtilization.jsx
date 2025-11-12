@@ -1,16 +1,38 @@
-import { useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useState, useEffect } from "react";
 import { MapPin } from "lucide-react";
-import { fetchWarehouseUtilization } from "../../store/modules/inventory/actions";
-import { selectWarehouseUtilization } from "../../store/modules/inventory/selectors";
+import { inventoryAPI } from "../../api";
 
 export default function WarehouseUtilization() {
-  const dispatch = useDispatch();
-  const rows = useSelector(selectWarehouseUtilization) || [];
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    dispatch(fetchWarehouseUtilization.request());
-  }, [dispatch]);
+    loadUtilization();
+  }, []);
+
+  const loadUtilization = async () => {
+    try {
+      setLoading(true);
+      const response = await inventoryAPI.getUtilization();
+      const data = response.data?.data || response.data || [];
+      const utilizationList = Array.isArray(data) ? data : [];
+      
+      // API 데이터를 컴포넌트 형식에 맞게 변환
+      const formattedData = utilizationList.map(item => ({
+        factory: item.factory || { code: item.factory_code || item.factory_name, name: item.factory_name },
+        percentage: item.percentage || item.utilization_rate || 0,
+        itemCount: item.item_count || item.items_count || 0,
+        note: item.note || item.description || '',
+      }));
+      
+      setRows(formattedData);
+    } catch (error) {
+      console.error('창고 이용률 로드 실패:', error);
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="mt-6 rounded-xl bg-white p-6 shadow-sm">
@@ -19,8 +41,13 @@ export default function WarehouseUtilization() {
         <h2 className="text-lg text-[#674529]">창고별 이용률</h2>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        {rows.map((w, idx) => (
+      {loading ? (
+        <div className="text-center py-8 text-gray-500">불러오는 중...</div>
+      ) : rows.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">창고 이용률 데이터가 없습니다.</div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          {rows.map((w, idx) => (
           <div key={idx} className="rounded-lg border border-gray-200 p-4">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-[#674529]">{w.factory?.code ?? w.factory?.name}</h3>
@@ -39,8 +66,9 @@ export default function WarehouseUtilization() {
             </div>
             <p className="text-sm text-gray-500">{w.note}</p>
           </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

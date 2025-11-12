@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, User, Lock } from 'lucide-react';
+import { authAPI } from '../api';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -29,44 +30,33 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // API로 로그인 요청보내기
-      // 환경 변수에서 API URL 가져오기 (기본값 없음 - .env 필수)
-      const API_URL = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL;
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        credentials: 'include', // 세션 쿠키 받아오기 위해 필요!
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          username: formData.userId,
-          password: formData.password
-        })
+      const response = await authAPI.login({
+        username: formData.userId,
+        password: formData.password,
       });
 
-      if (!response.ok) {
-        // 서버에서 401 등 에러 메세지 내려주면
-        let msg = '로그인에 실패했습니다.';
-        try {
-          const res = await response.json();
-          msg = res?.message || msg;
-        } catch (err) {}
-        throw new Error(msg);
+      if (response.data?.ok || response.data?.user) {
+        const userData = response.data?.user || {
+          username: formData.userId,
+          name: formData.userId,
+        };
+
+        localStorage.setItem(
+          'user',
+          JSON.stringify({
+            userId: userData.username || formData.userId,
+            name: userData.full_name || userData.name || formData.userId,
+            loginTime: new Date().toISOString(),
+          })
+        );
+
+        navigate('/dash');
+      } else {
+        throw new Error(response.data?.message || '로그인에 실패했습니다.');
       }
-
-      // 로그인 성공 시(여기선 로그인 성공 후 사용자의 정보는 직접 내려오는 API 따로 필요해 보임)
-      localStorage.setItem(
-        'user',
-        JSON.stringify({
-          userId: formData.userId,
-          name: formData.userId, // TODO: 서버에서 이름이나 정보를 내려주도록 바꿀 수 있음
-          loginTime: new Date().toISOString()
-        })
-      );
-
-      navigate('/dash');
     } catch (error) {
-      alert(error.message);
+      const errorMessage = error.response?.data?.message || error.message || '로그인에 실패했습니다.';
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }

@@ -3,6 +3,12 @@ import { X } from 'lucide-react';
 const ShippingConfirmModal = ({ isOpen, onClose, onConfirm, onLabelPrint, itemData }) => {
   if (!isOpen || !itemData) return null;
 
+  const handleLabelPrintClick = () => {
+    if (onLabelPrint) {
+      onLabelPrint(itemData);
+    }
+  };
+
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'>
       <div className='w-full max-w-md rounded-xl bg-white shadow-xl'>
@@ -60,7 +66,7 @@ const ShippingConfirmModal = ({ isOpen, onClose, onConfirm, onLabelPrint, itemDa
             취소하기
           </button>
           <button
-            onClick={onLabelPrint}
+            onClick={handleLabelPrintClick}
             className='rounded-lg border border-[#674529] bg-white px-4 py-2 text-sm font-medium text-[#674529] transition-colors hover:bg-gray-50'
           >
             라벨 프린트

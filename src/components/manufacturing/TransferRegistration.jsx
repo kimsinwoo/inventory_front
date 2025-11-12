@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, X } from 'lucide-react';
-import { items } from '../../data/items';
+import { warehouseTransfersAPI, itemsAPI } from '../../api';
 
 const TransferRegistration = () => {
   const [formData, setFormData] = useState({
@@ -11,10 +11,24 @@ const TransferRegistration = () => {
     rawMaterials: [{ code: '', name: '', quantity: '' }]
   });
 
-  const [availableProducts, setAvailableProducts] = useState([
-    { expiry: 'D-5', deadline: '2025-10-10', quantity: '100 kg' },
-    { expiry: 'D-8', deadline: '2025-10-21', quantity: '150 kg' },
-  ]);
+  const [availableProducts, setAvailableProducts] = useState([]);
+  const [itemsList, setItemsList] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // 품목 목록 로드
+  useEffect(() => {
+    const loadItems = async () => {
+      try {
+        const response = await itemsAPI.getItems();
+        const data = response.data?.data || response.data || [];
+        setItemsList(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('품목 목록 로드 실패:', error);
+        setItemsList([]);
+      }
+    };
+    loadItems();
+  }, []);
 
   const handleAddRawMaterial = () => {
     setFormData({
@@ -34,13 +48,69 @@ const TransferRegistration = () => {
 
     // 품목명이 변경되면 자동으로 품목코드 설정
     if (field === 'name') {
-      const item = items.find((item) => item.name === value);
+      const item = itemsList.find((item) => item.name === value);
       if (item) {
         newRawMaterials[index]['code'] = item.code;
       }
     }
 
     setFormData({ ...formData, rawMaterials: newRawMaterials });
+  };
+
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
+      
+      // 공장 ID 추출 (예: "1공장" -> 1)
+      const sourceFactoryId = formData.departureLocation.includes('1') ? 1 : formData.departureLocation.includes('2') ? 2 : 1;
+      const destFactoryId = formData.arrivalLocation.includes('1') ? 1 : formData.arrivalLocation.includes('2') ? 2 : 2;
+      
+      // 원재료 데이터 변환
+      const transfers = formData.rawMaterials
+        .filter(m => m.code && m.name && m.quantity)
+        .map(m => {
+          const item = itemsList.find(i => i.code === m.code || i.name === m.name);
+          return {
+            itemId: item?.id || null,
+            quantity: Number(m.quantity) || 0,
+            unit: item?.unit || 'EA',
+          };
+        })
+        .filter(t => t.itemId && t.quantity > 0);
+
+      if (transfers.length === 0) {
+        alert('이송할 품목을 입력해주세요.');
+        return;
+      }
+
+      // 창고 이동 API 호출
+      const response = await warehouseTransfersAPI.transfer({
+        sourceFactoryId,
+        destFactoryId,
+        transfers,
+        transportMethod: formData.transportMethod,
+        recipient: formData.recipient,
+      });
+
+      if (response.data?.ok || response.data?.data) {
+        alert('이송 등록이 완료되었습니다.');
+        // 폼 초기화
+        setFormData({
+          departureLocation: '1공장',
+          arrivalLocation: '2공장',
+          transportMethod: '트럭',
+          recipient: '',
+          rawMaterials: [{ code: '', name: '', quantity: '' }]
+        });
+      } else {
+        throw new Error(response.data?.message || '이송 등록에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('이송 등록 실패:', error);
+      alert(error.response?.data?.message || error.message || '이송 등록에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -125,8 +195,8 @@ const TransferRegistration = () => {
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#674529] text-sm"
                 >
                   <option value="">품목명 선택</option>
-                  {items.map((item) => (
-                    <option key={item.code} value={item.name}>
+                  {itemsList.map((item) => (
+                    <option key={item.code || item.id} value={item.name}>
                       {item.name}
                     </option>
                   ))}
@@ -154,8 +224,12 @@ const TransferRegistration = () => {
                 )}
               </div>
             ))}
-            <button className="w-full px-3 py-2 bg-[#674529] text-white rounded-md mt-2 hover:bg-[#533820]">
-              이송등록
+            <button 
+              onClick={handleSubmit}
+              disabled={loading}
+              className="w-full px-3 py-2 bg-[#674529] text-white rounded-md mt-2 hover:bg-[#533820] disabled:opacity-50"
+            >
+              {loading ? '등록 중...' : '이송등록'}
             </button>
           </div>
 

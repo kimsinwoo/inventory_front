@@ -1,34 +1,49 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Truck, Package, Box } from 'lucide-react';
+import { warehouseTransfersAPI } from '../../api';
 
 const TransferStatus = () => {
   const [selectedTransport, setSelectedTransport] = useState('전체');
-  const [transfers] = useState([
-    {
-      route: '1공장 → 2공장',
-      status: '이동완료',
-      departureDate: '2025-10-25',
-      quantity: '100 Kg',
-      item: '당근',
-      transport: '트럭'
-    },
-    {
-      route: '1창고 → 2창고',
-      status: '이동중',
-      departureDate: '2025-10-30',
-      quantity: '50 Kg',
-      item: '고구마',
-      transport: '팔레트'
-    },
-    {
-      route: '2공장 → 1창고',
-      status: '이동대기',
-      departureDate: '2025-10-31',
-      quantity: '75 Kg',
-      item: '닭고기 (가슴살)',
-      transport: '박스'
-    }
-  ]);
+  const [transfers, setTransfers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadTransfers = async () => {
+      try {
+        setLoading(true);
+        const response = await warehouseTransfersAPI.getHistory();
+        const data = response.data?.data || response.data || [];
+        const transfersList = Array.isArray(data) ? data : [];
+        
+        // API 데이터를 컴포넌트 형식에 맞게 변환
+        const formattedTransfers = transfersList.map((t) => {
+          const sourceFactory = t.sourceFactoryId || t.SourceFactory?.id || 1;
+          const destFactory = t.destFactoryId || t.DestFactory?.id || 2;
+          const itemName = t.Item?.name || t.item_name || '품목명 없음';
+          const quantity = t.quantity || 0;
+          const unit = t.Item?.unit || t.unit || '';
+          
+          return {
+            id: t.id,
+            route: `${sourceFactory}공장 → ${destFactory}공장`,
+            status: t.status === 'COMPLETED' ? '이동완료' : t.status === 'IN_PROGRESS' ? '이동중' : '이동대기',
+            departureDate: t.created_at ? t.created_at.split('T')[0] : '',
+            quantity: `${quantity} ${unit}`,
+            item: itemName,
+            transport: t.transport_method || t.transportMethod || '트럭',
+          };
+        });
+        
+        setTransfers(formattedTransfers);
+      } catch (error) {
+        console.error('이송 현황 로드 실패:', error);
+        setTransfers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadTransfers();
+  }, []);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -69,8 +84,21 @@ const TransferStatus = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredTransfers.map((transfer, index) => (
-              <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="py-8 text-center text-sm text-gray-500">
+                  불러오는 중...
+                </td>
+              </tr>
+            ) : filteredTransfers.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-8 text-center text-sm text-gray-500">
+                  등록된 이송 내역이 없습니다.
+                </td>
+              </tr>
+            ) : (
+              filteredTransfers.map((transfer, index) => (
+                <tr key={transfer.id || index} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="py-3 px-4 text-sm text-gray-700">{transfer.route}</td>
                 <td className="py-3 px-4 text-sm">
                   <span
@@ -90,13 +118,7 @@ const TransferStatus = () => {
                 <td className="py-3 px-4 text-sm text-gray-700">{transfer.item}</td>
                 <td className="py-3 px-4 text-sm text-gray-700">{transfer.quantity}</td>
               </tr>
-            ))}
-            {filteredTransfers.length === 0 && (
-              <tr>
-                <td colSpan="6" className="py-8 text-center text-sm text-gray-500">
-                  등록된 이송 내역이 없습니다.
-                </td>
-              </tr>
+            ))
             )}
           </tbody>
         </table>

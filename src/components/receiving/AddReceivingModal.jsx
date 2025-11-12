@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { itemsAPI } from '../../api';
+import { itemsAPI, factoriesAPI, storageConditionsAPI } from '../../api';
 
 const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
@@ -10,14 +10,26 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
     expectedQuantity: '',
     expectedDate: new Date().toISOString().split('T')[0],
     selectedItemId: '', // 선택된 품목의 고유 식별자
+    factoryId: '', // 공장 ID
+    supplierName: '', // 공급업체명
+    barcode: '', // 바코드
+    wholesalePrice: '', // 도매가
+    storageConditionId: '', // 보관 조건 ID
+    notes: '', // 메모
   });
   const [itemsList, setItemsList] = useState([]);
+  const [factoriesList, setFactoriesList] = useState([]);
+  const [storageConditionsList, setStorageConditionsList] = useState([]);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
+  const [isLoadingFactories, setIsLoadingFactories] = useState(false);
+  const [isLoadingStorageConditions, setIsLoadingStorageConditions] = useState(false);
 
-  // 품목 목록 로드
+  // 품목 목록, 공장 목록, 보관 조건 목록 로드
   useEffect(() => {
     if (isOpen) {
       loadItems();
+      loadFactories();
+      loadStorageConditions();
     }
   }, [isOpen]);
 
@@ -32,6 +44,34 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
       setItemsList([]);
     } finally {
       setIsLoadingItems(false);
+    }
+  };
+
+  const loadFactories = async () => {
+    try {
+      setIsLoadingFactories(true);
+      const response = await factoriesAPI.getFactories();
+      const data = response.data?.data || response.data || [];
+      setFactoriesList(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('공장 목록 로드 실패:', error);
+      setFactoriesList([]);
+    } finally {
+      setIsLoadingFactories(false);
+    }
+  };
+
+  const loadStorageConditions = async () => {
+    try {
+      setIsLoadingStorageConditions(true);
+      const response = await storageConditionsAPI.getStorageConditions();
+      const data = response.data?.data || response.data || [];
+      setStorageConditionsList(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('보관 조건 목록 로드 실패:', error);
+      setStorageConditionsList([]);
+    } finally {
+      setIsLoadingStorageConditions(false);
     }
   };
 
@@ -96,7 +136,13 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
         expectedQuantity: parseFloat(formData.expectedQuantity),
         unit: formData.unit,
         expectedDate: formData.expectedDate,
-        status: 'pending', // 대기 상태
+        factoryId: formData.factoryId,
+        supplierName: formData.supplierName,
+        barcode: formData.barcode,
+        wholesalePrice: formData.wholesalePrice ? parseFloat(formData.wholesalePrice) : undefined,
+        storageConditionId: formData.storageConditionId ? parseInt(formData.storageConditionId) : undefined,
+        notes: formData.notes,
+        selectedItemId: formData.selectedItemId,
       };
 
       await onSubmit(receivingData);
@@ -109,6 +155,12 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
         expectedQuantity: '',
         expectedDate: new Date().toISOString().split('T')[0],
         selectedItemId: '',
+        factoryId: '',
+        supplierName: '',
+        barcode: '',
+        wholesalePrice: '',
+        storageConditionId: '',
+        notes: '',
       });
     } catch (error) {
       console.error('입고 목록 추가 실패:', error);
@@ -222,6 +274,115 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
                   onChange={handleChange}
                   required
                   className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                />
+              </div>
+
+              {/* 공장 */}
+              <div>
+                <label className='mb-1 block text-sm font-medium text-gray-700'>
+                  공장 <span className='text-red-500'>*</span>
+                </label>
+                <select
+                  name='factoryId'
+                  value={formData.factoryId}
+                  onChange={handleChange}
+                  required
+                  disabled={isLoadingFactories}
+                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529] disabled:bg-gray-100 disabled:cursor-not-allowed'
+                >
+                  <option value=''>
+                    {isLoadingFactories ? '공장 목록 로딩 중...' : '공장을 선택하세요'}
+                  </option>
+                  {factoriesList.map((factory) => (
+                    <option key={factory.id} value={factory.id}>
+                      {factory.name || factory.code || `공장 ${factory.id}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 공급업체명 */}
+              <div>
+                <label className='mb-1 block text-sm font-medium text-gray-700'>
+                  공급업체명
+                </label>
+                <input
+                  type='text'
+                  name='supplierName'
+                  value={formData.supplierName}
+                  onChange={handleChange}
+                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                  placeholder='공급업체명을 입력하세요'
+                />
+              </div>
+
+              {/* 바코드 */}
+              <div>
+                <label className='mb-1 block text-sm font-medium text-gray-700'>
+                  바코드
+                </label>
+                <input
+                  type='text'
+                  name='barcode'
+                  value={formData.barcode}
+                  onChange={handleChange}
+                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                  placeholder='바코드를 입력하세요'
+                />
+              </div>
+
+              {/* 도매가 */}
+              <div>
+                <label className='mb-1 block text-sm font-medium text-gray-700'>
+                  도매가
+                </label>
+                <input
+                  type='number'
+                  name='wholesalePrice'
+                  value={formData.wholesalePrice}
+                  onChange={handleChange}
+                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                  placeholder='도매가를 입력하세요'
+                  min='0'
+                  step='0.01'
+                />
+              </div>
+
+              {/* 보관 조건 */}
+              <div>
+                <label className='mb-1 block text-sm font-medium text-gray-700'>
+                  보관 조건
+                </label>
+                <select
+                  name='storageConditionId'
+                  value={formData.storageConditionId}
+                  onChange={handleChange}
+                  disabled={isLoadingStorageConditions}
+                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529] disabled:bg-gray-100 disabled:cursor-not-allowed'
+                >
+                  <option value=''>
+                    {isLoadingStorageConditions ? '보관 조건 로딩 중...' : '보관 조건을 선택하세요'}
+                  </option>
+                  {storageConditionsList.map((condition) => (
+                    <option key={condition.id} value={condition.id}>
+                      {condition.name || condition.condition_name || `보관 조건 ${condition.id}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 메모 */}
+              <div>
+                <label className='mb-1 block text-sm font-medium text-gray-700'>
+                  메모
+                </label>
+                <textarea
+                  name='notes'
+                  value={formData.notes}
+                  onChange={handleChange}
+                  rows={2}
+                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                  placeholder='메모를 입력하세요'
                 />
               </div>
             </div>

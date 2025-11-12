@@ -16,6 +16,7 @@ const Label = () => {
   const [activeTab, setActiveTab] = useState('create'); // 'create' or 'list'
   const [labelType, setLabelType] = useState('large'); // 미리보기용
   const [selectedItemId, setSelectedItemId] = useState('');
+  const [selectedItemName, setSelectedItemName] = useState(''); // 추가: 선택된 item의 제품명
   const [finishedItems, setFinishedItems] = useState([]);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [productName, setProductName] = useState('');
@@ -43,22 +44,10 @@ const Label = () => {
       try {
         setIsLoadingItems(true);
         const response = await itemsAPI.getItems({ category: 'Finished', page: 1, limit: 1000 });
-        if (isMounted) {
-          const items = Array.isArray(response.data) 
-            ? response.data 
-            : response.data?.data || response.data?.rows || [];
-          // 클라이언트 측에서도 Finished 카테고리만 필터링
-          const finishedOnly = items.filter(item => {
-            const category = item.category || item.Category || item.categoryName || '';
-            return category === 'Finished' || category === '완제품';
-          });
-          setFinishedItems(finishedOnly);
-        }
+        setFinishedItems(response.data?.data || []);
+        console.log('finishedItems : ', response.data?.data);
       } catch (error) {
-        if (isMounted && error.name !== 'AbortError') {
-          console.error('품목 목록 가져오기 실패:', error);
-          alert('품목 목록을 불러올 수 없습니다.');
-        }
+        console.error('품목 목록 가져오기 실패:', error);
       } finally {
         if (isMounted) {
           setIsLoadingItems(false);
@@ -112,6 +101,11 @@ const Label = () => {
         if (labelData.labelType) {
           setLabelType(labelData.labelType);
         }
+        // 제품명 셀렉트의 초기값에 포함되는 item_name 저장
+        if (labelData.itemId) {
+          const found = (finishedItems || []).find(item => String(item.id) === String(labelData.itemId));
+          setSelectedItemName(found ? (found.name || found.itemName || '') : '');
+        }
 
         // localStorage에서 데이터 제거 (한 번만 사용)
         localStorage.removeItem('selectedLabelData');
@@ -122,18 +116,21 @@ const Label = () => {
         console.error('라벨 데이터 로드 실패:', error);
       }
     }
+    // eslint-disable-next-line
   }, []);
 
-  // 제품 선택 시 제품명과 등록번호 자동 설정 (useCallback으로 최적화)
+  // 제품 선택 시 제품명과 등록번호 및 선택한 아이템명 자동 설정 (useCallback으로 최적화)
   const handleItemChange = useCallback((itemId) => {
     setSelectedItemId(itemId);
     const selectedItem = finishedItems.find(item => item.id === parseInt(itemId) || item.id === itemId);
     if (selectedItem) {
       setProductName(selectedItem.name || selectedItem.itemName || '');
       setRegistrationNumber(selectedItem.code || '');
+      setSelectedItemName(selectedItem.name || selectedItem.itemName || ''); // 추가
     } else {
       setProductName('');
       setRegistrationNumber('');
+      setSelectedItemName(''); // 추가
     }
   }, [finishedItems]);
 
@@ -299,7 +296,6 @@ const Label = () => {
 
       const htmlContent = buildLargeLabelHtml();
       const payload = {
-        htmlContent,
         printerName: selectedPrinter,
         printCount: Number.isFinite(printCount) && printCount > 0 ? printCount : 1,
         labelType,
@@ -311,6 +307,8 @@ const Label = () => {
         rawMaterials,
         actualWeight,
         itemId: selectedItemId ? Number(selectedItemId) : null,
+        itemName: selectedItemName, // 변경: 실제 제품명(item_name) 추가
+        manufactureDate: new Date().toISOString().split('T')[0],
       };
 
       console.log('전송할 데이터:', payload);

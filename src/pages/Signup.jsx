@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, User, Lock, Phone, Mail, Calendar, IdCard, Briefcase, Building2 } from 'lucide-react';
+import { authAPI } from '../api';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -24,7 +25,7 @@ const Signup = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // 비밀번호 확인
@@ -33,27 +34,28 @@ const Signup = () => {
       return;
     }
 
-    // 회원가입 로직 구현
-    // 실제로는 서버에 데이터를 전송해야 하지만,
-    // 여기서는 임시로 localStorage에 저장
-    const { confirmPassword, ...userDataToSave } = formData;
+    try {
+      const response = await authAPI.join({
+        username: formData.userId,
+        password: formData.password,
+        full_name: formData.name,
+        phone_number: formData.phone,
+        email: formData.email,
+        position: formData.position,
+        department: formData.department,
+        hire_date: formData.hireDate ? new Date(formData.hireDate).toISOString() : undefined,
+      });
 
-    // 기존 사용자 목록 가져오기
-    const existingUsers = JSON.parse(localStorage.getItem('users') || '[]');
-
-    // 중복 아이디 체크
-    const isDuplicate = existingUsers.some(user => user.userId === formData.userId);
-    if (isDuplicate) {
-      alert('이미 존재하는 아이디입니다.');
-      return;
+      if (response.data?.ok || response.data?.user) {
+        alert('회원가입이 완료되었습니다!');
+        navigate('/login');
+      } else {
+        throw new Error(response.data?.message || '회원가입에 실패했습니다.');
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || '회원가입에 실패했습니다.';
+      alert(errorMessage);
     }
-
-    // 새 사용자 추가
-    existingUsers.push(userDataToSave);
-    localStorage.setItem('users', JSON.stringify(existingUsers));
-
-    alert('회원가입이 완료되었습니다!');
-    navigate('/login');
   };
 
   return (

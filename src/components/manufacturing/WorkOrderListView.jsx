@@ -1,28 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { workOrdersAPI } from '../../api';
 
 const WorkOrderListView = () => {
   const [filterType, setFilterType] = useState('전체');
+  const [workOrders, setWorkOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const workOrders = [
-    {
-      id: 'RAW001',
-      title: 'Title',
-      product: '전처리 믹스 A - 10개',
-      material: '닭고기 (가슴살)',
-      quantity: '50 kg',
-      deadlineDate: '2025-10-22',
-      manager: '김전처리',
-    },
-    {
-      id: 'RAW002',
-      title: 'Title',
-      product: '세척',
-      material: '당근',
-      quantity: '100 kg',
-      deadlineDate: '2025-10-23',
-      manager: '나작업',
-    },
-  ];
+  useEffect(() => {
+    loadWorkOrders();
+  }, [filterType]);
+
+  const loadWorkOrders = async () => {
+    try {
+      setLoading(true);
+      const params = {};
+      if (filterType === '내 작업') {
+        // 현재 사용자의 작업만 필터링 (나중에 구현)
+        // params.user_id = currentUser.id;
+      }
+      const response = await workOrdersAPI.getWorkOrders(params);
+      const data = response.data?.data || response.data || [];
+      const ordersList = Array.isArray(data) ? data : [];
+      
+      // API 데이터를 컴포넌트 형식에 맞게 변환
+      const formattedOrders = ordersList.map(order => ({
+        id: order.id || `WO-${order.id}`,
+        title: order.title || 'Title',
+        product: order.work_content || order.product_name || '작업 내용',
+        material: order.material_name || order.material || '-',
+        quantity: order.quantity ? `${order.quantity} ${order.unit || 'kg'}` : '-',
+        deadlineDate: order.scheduled_date ? order.scheduled_date.split('T')[0] : order.deadline_date || '-',
+        manager: order.manager?.full_name || order.manager_name || order.manager || '-',
+      }));
+      
+      setWorkOrders(formattedOrders);
+    } catch (error) {
+      console.error('작업 지시서 목록 로드 실패:', error);
+      setWorkOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
@@ -38,8 +56,13 @@ const WorkOrderListView = () => {
         </select>
       </div>
 
-      <div className="space-y-4">
-        {workOrders.map((order) => (
+      {loading ? (
+        <div className="text-center py-8 text-gray-500">불러오는 중...</div>
+      ) : workOrders.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">작업 지시서가 없습니다.</div>
+      ) : (
+        <div className="space-y-4">
+          {workOrders.map((order) => (
           <div key={order.id} className="border border-gray-200 rounded-lg p-5">
             <div className="flex justify-between items-start mb-4">
               <div>
@@ -70,8 +93,9 @@ const WorkOrderListView = () => {
               </div>
             </div>
           </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

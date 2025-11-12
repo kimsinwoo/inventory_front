@@ -1,78 +1,27 @@
+import { useEffect, useState } from 'react';
 import { Users, AlertTriangle, CheckCircle2, Edit, Trash2 } from 'lucide-react';
+import { authAPI } from '../../api';
 
 const UserList = () => {
-  const users = [
-    {
-      id: 'USR001',
-      name: '관리자',
-      email: 'admin@aniecong.com',
-      role: '관리자',
-      roleBg: 'bg-purple-100',
-      roleText: 'text-purple-700',
-      department: '관리부',
-      accessLevel: 'ALL',
-      status: '활성',
-      statusBg: 'bg-green-100',
-      statusText: 'text-green-700',
-      isActive: false,
-    },
-    {
-      id: 'USR002',
-      name: '김검수',
-      email: 'kim.inspector@aniecong.com',
-      role: '품질관리',
-      roleBg: 'bg-orange-100',
-      roleText: 'text-orange-700',
-      department: '품질관리',
-      accessLevel: 'P1',
-      status: '활성',
-      statusBg: 'bg-green-100',
-      statusText: 'text-green-700',
-      isActive: false,
-    },
-    {
-      id: 'USR003',
-      name: '이전처리',
-      email: 'lee.processor@aniecong.com',
-      role: '작업자',
-      roleBg: 'bg-green-100',
-      roleText: 'text-green-700',
-      department: '전처리',
-      accessLevel: 'P1',
-      status: '활성',
-      statusBg: 'bg-green-100',
-      statusText: 'text-green-700',
-      isActive: false,
-    },
-    {
-      id: 'USR004',
-      name: '최제조',
-      email: 'choi.manufacturer@aniecong.com',
-      role: '작업자',
-      roleBg: 'bg-green-100',
-      roleText: 'text-green-700',
-      department: '제조',
-      accessLevel: 'P2',
-      status: '활성',
-      statusBg: 'bg-green-100',
-      statusText: 'text-green-700',
-      isActive: false,
-    },
-    {
-      id: 'USR005',
-      name: '박품질',
-      email: 'park.quality@aniecong.com',
-      role: '품질관리',
-      roleBg: 'bg-orange-100',
-      roleText: 'text-orange-700',
-      department: '품질관리',
-      accessLevel: 'P2',
-      status: '비활성',
-      statusBg: 'bg-gray-100',
-      statusText: 'text-gray-700',
-      isActive: true,
-    },
-  ];
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        setLoading(true);
+        const response = await authAPI.getUsers();
+        const data = response.data?.data || response.data || [];
+        setUsers(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('사용자 목록 로드 실패:', error);
+        setUsers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadUsers();
+  }, []);
 
   return (
     <div className='rounded-xl border border-gray-200 bg-white shadow-sm'>
@@ -116,50 +65,69 @@ const UserList = () => {
             </tr>
           </thead>
           <tbody className='divide-y divide-gray-200'>
-            {users.map((user) => (
-              <tr key={user.id} className='hover:bg-gray-50'>
-                <td className='px-4 py-3 text-sm text-gray-900'>{user.id}</td>
-                <td className='px-4 py-3 text-sm text-gray-900'>{user.name}</td>
-                <td className='px-4 py-3 text-sm text-gray-600'>
-                  {user.email}
-                </td>
-                <td className='px-4 py-3'>
-                  <span
-                    className={`inline-block rounded px-2 py-1 text-xs font-medium ${user.roleBg} ${user.roleText}`}
-                  >
-                    {user.role}
-                  </span>
-                </td>
-                <td className='px-4 py-3 text-sm text-gray-900'>
-                  {user.department}
-                </td>
-                <td className='px-4 py-3 text-sm text-gray-900'>
-                  {user.accessLevel}
-                </td>
-                <td className='px-4 py-3'>
-                  <span
-                    className={`inline-block rounded px-2 py-1 text-xs font-medium ${user.statusBg} ${user.statusText}`}
-                  >
-                    {user.status}
-                  </span>
-                </td>
-                <td className='px-4 py-3'>
-                  <div className='flex items-center space-x-2'>
-                    {user.isActive ? (
-                      <CheckCircle2 className='h-5 w-5 text-[#86A956]' />
-                    ) : (
-                      <AlertTriangle className='h-5 w-5 text-orange-500' />
-                    )}
-                    <button className='text-gray-900 hover:text-[#674529]'>
-                      <Edit className='h-4 w-4' />
-                    </button>
-                    <button className='text-red-600'>
-                      <Trash2 className='h-4 w-4' />
-                    </button>
-                  </div>
+            {loading ? (
+              <tr>
+                <td colSpan={8} className='px-4 py-6 text-center text-sm text-gray-500'>
+                  불러오는 중...
                 </td>
               </tr>
-            ))}
+            ) : users.length === 0 ? (
+              <tr>
+                <td colSpan={8} className='px-4 py-6 text-center text-sm text-gray-500'>
+                  사용자가 없습니다.
+                </td>
+              </tr>
+            ) : (
+              users.map((user) => {
+                const role = user.role || '일반';
+                const roleBg = role === '관리자' ? 'bg-purple-100' : role === '품질관리' ? 'bg-orange-100' : 'bg-green-100';
+                const roleText = role === '관리자' ? 'text-purple-700' : role === '품질관리' ? 'text-orange-700' : 'text-green-700';
+                const status = '활성';
+                const statusBg = 'bg-green-100';
+                const statusText = 'text-green-700';
+
+                return (
+                  <tr key={user.id} className='hover:bg-gray-50'>
+                    <td className='px-4 py-3 text-sm text-gray-900'>{user.id}</td>
+                    <td className='px-4 py-3 text-sm text-gray-900'>{user.full_name || user.name || user.username || ''}</td>
+                    <td className='px-4 py-3 text-sm text-gray-600'>
+                      {user.email || ''}
+                    </td>
+                    <td className='px-4 py-3'>
+                      <span
+                        className={`inline-block rounded px-2 py-1 text-xs font-medium ${roleBg} ${roleText}`}
+                      >
+                        {role}
+                      </span>
+                    </td>
+                    <td className='px-4 py-3 text-sm text-gray-900'>
+                      {user.department || ''}
+                    </td>
+                    <td className='px-4 py-3 text-sm text-gray-900'>
+                      {user.position || ''}
+                    </td>
+                    <td className='px-4 py-3'>
+                      <span
+                        className={`inline-block rounded px-2 py-1 text-xs font-medium ${statusBg} ${statusText}`}
+                      >
+                        {status}
+                      </span>
+                    </td>
+                    <td className='px-4 py-3'>
+                      <div className='flex items-center space-x-2'>
+                        <CheckCircle2 className='h-5 w-5 text-[#86A956]' />
+                        <button className='text-gray-900 hover:text-[#674529]'>
+                          <Edit className='h-4 w-4' />
+                        </button>
+                        <button className='text-red-600'>
+                          <Trash2 className='h-4 w-4' />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

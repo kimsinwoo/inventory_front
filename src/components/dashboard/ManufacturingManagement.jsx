@@ -7,11 +7,12 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
-const ManufacturingManagement = () => {
-  const stats = [
+const ManufacturingManagement = ({ dashboardData, loading }) => {
+  // API 데이터가 있으면 사용, 없으면 기본값
+  const stats = dashboardData ? [
     {
       title: '입고 완료',
-      value: '24건',
+      value: `${dashboardData.recentMovements?.filter(m => m.type === 'RECEIVE').length || 0}건`,
       change: '+12%',
       isPositive: true,
       icon: Truck,
@@ -20,7 +21,7 @@ const ManufacturingManagement = () => {
     },
     {
       title: '제조 완료',
-      value: '15건',
+      value: `${dashboardData.topMovingItems?.length || 0}건`,
       change: '+8%',
       isPositive: true,
       icon: Factory,
@@ -29,7 +30,7 @@ const ManufacturingManagement = () => {
     },
     {
       title: '출고 완료',
-      value: '18건',
+      value: `${dashboardData.recentMovements?.filter(m => m.type === 'ISSUE').length || 0}건`,
       change: '+5%',
       isPositive: true,
       icon: Package,
@@ -38,7 +39,7 @@ const ManufacturingManagement = () => {
     },
     {
       title: '재고 알람',
-      value: '3건',
+      value: `${dashboardData.stockStatus?.lowStock || 0}건`,
       change: '-2건',
       isPositive: false,
       icon: AlertTriangle,
@@ -47,7 +48,7 @@ const ManufacturingManagement = () => {
     },
     {
       title: '유통기한 임박',
-      value: '3건',
+      value: `${dashboardData.stockStatus?.expiringSoon || 0}건`,
       change: '-2건',
       isPositive: false,
       icon: AlertTriangle,
@@ -58,6 +59,61 @@ const ManufacturingManagement = () => {
       title: '승인 대기',
       value: '3건',
       change: '-2건',
+      isPositive: false,
+      icon: AlertTriangle,
+      bgColor: 'bg-orange-50',
+      iconColor: 'text-orange-600',
+    },
+  ] : [
+    {
+      title: '입고 완료',
+      value: '0건',
+      change: '+0%',
+      isPositive: true,
+      icon: Truck,
+      bgColor: 'bg-green-50',
+      iconColor: 'text-green-600',
+    },
+    {
+      title: '제조 완료',
+      value: '0건',
+      change: '+0%',
+      isPositive: true,
+      icon: Factory,
+      bgColor: 'bg-orange-50',
+      iconColor: 'text-orange-600',
+    },
+    {
+      title: '출고 완료',
+      value: '0건',
+      change: '+0%',
+      isPositive: true,
+      icon: Package,
+      bgColor: 'bg-blue-50',
+      iconColor: 'text-blue-600',
+    },
+    {
+      title: '재고 알람',
+      value: '0건',
+      change: '0건',
+      isPositive: false,
+      icon: AlertTriangle,
+      bgColor: 'bg-red-50',
+      iconColor: 'text-red-600',
+    },
+    {
+      title: '유통기한 임박',
+      value: '0건',
+      change: '0건',
+      isPositive: false,
+      icon: AlertTriangle,
+      bgColor: 'bg-red-50',
+      iconColor: 'text-red-600',
+    },
+    {
+      title: '승인 대기',
+      value: '0건',
+      change: '0건',
       isPositive: false,
       icon: AlertTriangle,
       bgColor: 'bg-orange-50',
