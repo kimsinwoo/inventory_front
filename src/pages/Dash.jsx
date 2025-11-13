@@ -6,7 +6,7 @@ import { dashboardAPI } from '../api';
 
 const Dash = () => {
   const navigate = useNavigate();
-  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardData, setDashboardData] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -14,7 +14,8 @@ const Dash = () => {
       try {
         setLoading(true);
         const response = await dashboardAPI.getDashboard();
-        setDashboardData(response.data?.data || null);
+        setDashboardData(response.data.data);
+        console.log('response : ', response.data.data);
       } catch (error) {
         console.error('대시보드 데이터 로드 실패:', error);
       } finally {

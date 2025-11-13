@@ -7,114 +7,65 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
-const ManufacturingManagement = ({ dashboardData, loading }) => {
-  // API 데이터가 있으면 사용, 없으면 기본값
-  const stats = dashboardData ? [
+const ManufacturingManagement = ({ dashboardData = {}, loading }) => {
+  // 데이터 접근 방식을 실제 데이터 구조에 맞게 수정
+  const stats = [
     {
       title: '입고 완료',
-      value: `${dashboardData.recentMovements?.filter(m => m.type === 'RECEIVE').length || 0}건`,
-      change: '+12%',
-      isPositive: true,
+      value:
+        dashboardData['입고 완료'] && typeof dashboardData['입고 완료'].today === 'number'
+          ? `${dashboardData['입고 완료'].today}건`
+          : '0건',
       icon: Truck,
       bgColor: 'bg-green-50',
       iconColor: 'text-green-600',
     },
     {
       title: '제조 완료',
-      value: `${dashboardData.topMovingItems?.length || 0}건`,
-      change: '+8%',
-      isPositive: true,
+      value:
+        dashboardData['제조 완료'] && typeof dashboardData['제조 완료'].today === 'number'
+          ? `${dashboardData['제조 완료'].today}건`
+          : '0건',
       icon: Factory,
       bgColor: 'bg-orange-50',
       iconColor: 'text-orange-600',
     },
     {
       title: '출고 완료',
-      value: `${dashboardData.recentMovements?.filter(m => m.type === 'ISSUE').length || 0}건`,
-      change: '+5%',
-      isPositive: true,
+      value:
+        dashboardData['출고 완료'] && typeof dashboardData['출고 완료'].today === 'number'
+          ? `${dashboardData['출고 완료'].today}건`
+          : '0건',
       icon: Package,
       bgColor: 'bg-blue-50',
       iconColor: 'text-blue-600',
     },
     {
       title: '재고 알람',
-      value: `${dashboardData.stockStatus?.lowStock || 0}건`,
-      change: '-2건',
-      isPositive: false,
+      value:
+        dashboardData['재고 알람'] && typeof dashboardData['재고 알람'].count === 'number'
+          ? `${dashboardData['재고 알람'].count}건`
+          : '0건',
       icon: AlertTriangle,
       bgColor: 'bg-red-50',
       iconColor: 'text-red-600',
     },
     {
       title: '유통기한 임박',
-      value: `${dashboardData.stockStatus?.expiringSoon || 0}건`,
-      change: '-2건',
-      isPositive: false,
+      value:
+        dashboardData['유통기한 임박'] && typeof dashboardData['유통기한 임박'].count === 'number'
+          ? `${dashboardData['유통기한 임박'].count}건`
+          : '0건',
       icon: AlertTriangle,
       bgColor: 'bg-red-50',
       iconColor: 'text-red-600',
     },
     {
       title: '승인 대기',
-      value: '3건',
-      change: '-2건',
-      isPositive: false,
-      icon: AlertTriangle,
-      bgColor: 'bg-orange-50',
-      iconColor: 'text-orange-600',
-    },
-  ] : [
-    {
-      title: '입고 완료',
-      value: '0건',
-      change: '+0%',
-      isPositive: true,
-      icon: Truck,
-      bgColor: 'bg-green-50',
-      iconColor: 'text-green-600',
-    },
-    {
-      title: '제조 완료',
-      value: '0건',
-      change: '+0%',
-      isPositive: true,
-      icon: Factory,
-      bgColor: 'bg-orange-50',
-      iconColor: 'text-orange-600',
-    },
-    {
-      title: '출고 완료',
-      value: '0건',
-      change: '+0%',
-      isPositive: true,
-      icon: Package,
-      bgColor: 'bg-blue-50',
-      iconColor: 'text-blue-600',
-    },
-    {
-      title: '재고 알람',
-      value: '0건',
-      change: '0건',
-      isPositive: false,
-      icon: AlertTriangle,
-      bgColor: 'bg-red-50',
-      iconColor: 'text-red-600',
-    },
-    {
-      title: '유통기한 임박',
-      value: '0건',
-      change: '0건',
-      isPositive: false,
-      icon: AlertTriangle,
-      bgColor: 'bg-red-50',
-      iconColor: 'text-red-600',
-    },
-    {
-      title: '승인 대기',
-      value: '0건',
-      change: '0건',
-      isPositive: false,
+      value:
+        dashboardData['승인 대기'] && typeof dashboardData['승인 대기'].count === 'number'
+          ? `${dashboardData['승인 대기'].count}건`
+          : '0건',
       icon: AlertTriangle,
       bgColor: 'bg-orange-50',
       iconColor: 'text-orange-600',
@@ -133,20 +84,6 @@ const ManufacturingManagement = ({ dashboardData, loading }) => {
                 <h3 className='mb-2 text-3xl font-bold text-gray-900'>
                   {stat.value}
                 </h3>
-                <div className='flex items-center text-sm'>
-                  {stat.isPositive ? (
-                    <TrendingUp size={16} className='mr-1 text-green-600' />
-                  ) : (
-                    <TrendingDown size={16} className='mr-1 text-red-600' />
-                  )}
-                  <span
-                    className={
-                      stat.isPositive ? 'text-green-600' : 'text-red-600'
-                    }
-                  >
-                    {stat.change}
-                  </span>
-                </div>
               </div>
               <div
                 className={`${stat.bgColor} flex items-center justify-center rounded-xl p-3`}

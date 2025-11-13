@@ -3,8 +3,18 @@ import { useState, useEffect } from 'react';
 import { items, getItemByName } from '../../data/items';
 import { itemsAPI, factoriesAPI } from '../../api';
 
+// 카테고리 옵션 정의 (AddReceivingModal과 동일하게)
+const CATEGORY_OPTIONS = [
+  { value: '', label: '카테고리 선택' },
+  { value: 'Finished', label: '완제품' },
+  { value: 'SemiFinished', label: '반제품' },
+  { value: 'RawMaterial', label: '원재료' },
+  { value: 'Supply', label: '소모품' },
+];
+
 const AddShippingModal = ({ isOpen, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
+    category: '', // 카테고리 추가
     itemName: '',
     itemCode: '',
     unit: '',
@@ -59,30 +69,56 @@ const AddShippingModal = ({ isOpen, onClose, onSubmit }) => {
     }
   };
 
+  const handleCategoryChange = (e) => {
+    const { value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      category: value,
+      // 카테고리 변경 시 품목도 리셋
+      selectedItemId: '',
+      itemName: '',
+      itemCode: '',
+      unit: '',
+    }));
+  };
+
+  // (카테고리 필터 적용) itemsList, items에서 category로 필터
+  const filteredItemsList = formData.category
+    ? itemsList.filter(item =>
+        (item.category || item.itemCategory || '') === formData.category
+      )
+    : itemsList;
+  const filteredLocalItems = formData.category
+    ? items.filter(item =>
+        (item.category || item.itemCategory || '') === formData.category
+      )
+    : items;
+
   const handleItemChange = (e) => {
     const selectedValue = e.target.value;
-    
+
     if (!selectedValue) {
       setFormData((prev) => ({
         ...prev,
         itemName: '',
         itemCode: '',
         unit: '',
+        selectedItemId: '',
       }));
       return;
     }
 
-    // itemsList에서 찾기 (백엔드 데이터)
-    let selectedItem = itemsList.find(item => {
+    // itemsList에서 찾기 (백엔드 데이터, 카테고리 필터)
+    let selectedItem = filteredItemsList.find(item => {
       const itemId = item.id?.toString();
       const itemCode = item.code || item.itemCode;
       const itemName = item.name || item.itemName;
       return itemId === selectedValue || itemCode === selectedValue || itemName === selectedValue;
     });
 
-    // itemsList에서 못 찾으면 로컬 데이터에서 찾기
+    // itemsList에서 못 찾으면 로컬 데이터에서 찾기 (카테고리 필터)
     if (!selectedItem) {
-      selectedItem = items.find(item => 
+      selectedItem = filteredLocalItems.find(item => 
         item.code === selectedValue || item.name === selectedValue
       );
     }
@@ -90,7 +126,7 @@ const AddShippingModal = ({ isOpen, onClose, onSubmit }) => {
     // 로컬 데이터의 getItemByName도 시도
     if (!selectedItem) {
       const localItem = getItemByName(selectedValue);
-      if (localItem) {
+      if (localItem && (!formData.category || localItem.category === formData.category || localItem.itemCategory === formData.category)) {
         selectedItem = localItem;
       }
     }
@@ -126,21 +162,22 @@ const AddShippingModal = ({ isOpen, onClose, onSubmit }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit(formData);
-      // 폼 초기화
-      setFormData({
-        itemName: '',
-        itemCode: '',
-        unit: '',
-        expectedQuantity: '',
-        expectedDate: new Date().toISOString().split('T')[0],
-        selectedItemId: '',
-        factoryId: '',
-        customerName: '',
-        issueType: '',
-        shippingAddress: '',
-        notes: '',
-      });
-    };
+    // 폼 초기화
+    setFormData({
+      category: '',
+      itemName: '',
+      itemCode: '',
+      unit: '',
+      expectedQuantity: '',
+      expectedDate: new Date().toISOString().split('T')[0],
+      selectedItemId: '',
+      factoryId: '',
+      customerName: '',
+      issueType: '',
+      shippingAddress: '',
+      notes: '',
+    });
+  };
 
   if (!isOpen) return null;
 
@@ -164,6 +201,25 @@ const AddShippingModal = ({ isOpen, onClose, onSubmit }) => {
         <form onSubmit={handleSubmit}>
           <div className='max-h-[70vh] overflow-y-auto px-6 py-4'>
             <div className='grid gap-4'>
+              {/* 카테고리 선택 */}
+              <div>
+                <label className='mb-1 block text-sm font-medium text-gray-700'>
+                  카테고리 <span className='text-red-500'>*</span>
+                </label>
+                <select
+                  name='category'
+                  value={formData.category}
+                  onChange={handleCategoryChange}
+                  required
+                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
+                >
+                  {CATEGORY_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {/* 품목명 선택 */}
               <div>
                 <label className='mb-1 block text-sm font-medium text-gray-700'>
@@ -174,14 +230,14 @@ const AddShippingModal = ({ isOpen, onClose, onSubmit }) => {
                   value={formData.selectedItemId}
                   onChange={handleItemChange}
                   required
-                  disabled={isLoadingItems}
+                  disabled={isLoadingItems || !formData.category}
                   className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529] disabled:bg-gray-100 disabled:cursor-not-allowed'
                 >
                   <option value=''>
-                    {isLoadingItems ? '품목 목록 로딩 중...' : '품목을 선택하세요'}
+                    {isLoadingItems ? '품목 목록 로딩 중...' : (formData.category ? '품목을 선택하세요' : '카테고리를 먼저 선택하세요')}
                   </option>
-                  {itemsList.map((item) => {
-                    // 백엔드 데이터: id가 있으면 id를 value로, 없으면 code 또는 name 사용
+                  {/* 백엔드 데이터 (카테고리 필터 적용)  */}
+                  {filteredItemsList.map((item) => {
                     const itemValue = item.id?.toString() || item.code || item.itemCode || item.name || item.itemName;
                     const itemName = item.name || item.itemName || '';
                     const itemCode = item.code || item.itemCode || '';
@@ -194,9 +250,9 @@ const AddShippingModal = ({ isOpen, onClose, onSubmit }) => {
                       </option>
                     );
                   })}
-                  {/* 백엔드 API 실패 시 로컬 데이터 표시 */}
-                  {itemsList.length === 0 && !isLoadingItems && items.map((item) => (
-                    <option key={item.code} value={item.name}>
+                  {/* 백엔드 API 실패 시 로컬 데이터 표시 (카테고리 필터 적용) */}
+                  {filteredItemsList.length === 0 && !isLoadingItems && filteredLocalItems.map((item) => (
+                    <option key={item.code || item.name} value={item.name}>
                       {item.name}
                     </option>
                   ))}

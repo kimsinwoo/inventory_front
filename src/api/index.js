@@ -360,6 +360,7 @@ export const factoriesAPI = {
 export const bomsAPI = {
   getBoms: async (params = {}) => {
     const response = await apiClient.get('/boms', { params });
+    console.log(response);
     return response;
   },
   getBom: async (id) => {
@@ -493,39 +494,7 @@ export const approvalAPI = {
 // ============================================
 export const dashboardAPI = {
   getDashboard: async (params = {}) => {
-    const response = await apiClient.get('/dashboard', { params });
-    return response;
-  },
-  getTotalValue: async (params = {}) => {
-    const response = await apiClient.get('/dashboard/total-value', { params });
-    return response;
-  },
-  getCategoryBreakdown: async (params = {}) => {
-    const response = await apiClient.get('/dashboard/category-breakdown', { params });
-    return response;
-  },
-  getRecentMovements: async (params = {}) => {
-    const response = await apiClient.get('/dashboard/recent-movements', { params });
-    return response;
-  },
-  getTopMovingItems: async (params = {}) => {
-    const response = await apiClient.get('/dashboard/top-moving-items', { params });
-    return response;
-  },
-  getStockStatus: async (params = {}) => {
-    const response = await apiClient.get('/dashboard/stock-status', { params });
-    return response;
-  },
-  getMonthlyTrend: async (params = {}) => {
-    const response = await apiClient.get('/dashboard/monthly-trend', { params });
-    return response;
-  },
-  getFactoryComparison: async () => {
-    const response = await apiClient.get('/dashboard/factory-comparison');
-    return response;
-  },
-  getKPIs: async (params = {}) => {
-    const response = await apiClient.get('/dashboard/kpis', { params });
+    const response = await apiClient.get('/dashboard/summary', { params });
     return response;
   },
 };

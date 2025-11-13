@@ -1,3 +1,4 @@
+// src/pages/WorkOrder/WorkOrderListView.jsx
 import { useState, useEffect } from 'react';
 import { workOrdersAPI } from '../../api';
 
@@ -7,7 +8,7 @@ const WorkOrderListView = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadWorkOrders();
+    void loadWorkOrders();
   }, [filterType]);
 
   const loadWorkOrders = async () => {
@@ -15,25 +16,38 @@ const WorkOrderListView = () => {
       setLoading(true);
       const params = {};
       if (filterType === '내 작업') {
-        // 현재 사용자의 작업만 필터링 (나중에 구현)
-        // params.user_id = currentUser.id;
+        // 필요 시 현재 사용자 기준 필터링
+        // params.created_by_user_id = currentUser.id;
       }
       const response = await workOrdersAPI.getWorkOrders(params);
-      const data = response.data?.data || response.data || [];
-      const ordersList = Array.isArray(data) ? data : [];
-      
-      // API 데이터를 컴포넌트 형식에 맞게 변환
-      const formattedOrders = ordersList.map(order => ({
-        id: order.id || `WO-${order.id}`,
-        title: order.title || 'Title',
-        product: order.work_content || order.product_name || '작업 내용',
-        material: order.material_name || order.material || '-',
-        quantity: order.quantity ? `${order.quantity} ${order.unit || 'kg'}` : '-',
-        deadlineDate: order.scheduled_date ? order.scheduled_date.split('T')[0] : order.deadline_date || '-',
-        manager: order.manager?.full_name || order.manager_name || order.manager || '-',
+      const root = response.data ?? {};
+      const rows = Array.isArray(root) ? root : root.rows ?? root.data ?? [];
+      const list = Array.isArray(rows) ? rows : [];
+
+      const formatted = list.map(order => ({
+        id: order.id,
+        workOrderNumber: order.work_order_number ?? order.workOrderNumber ?? '-',
+        productName:
+          order.product?.name ??
+          order.product_name ??
+          order.productName ??
+          '-',
+        bomName: order.bom?.name ?? order.bom_name ?? order.bomName ?? '-',
+        quantity: order.planned_quantity
+          ? `${order.planned_quantity} ${order.unit ?? ''}`.trim()
+          : '-',
+        scheduledStartDate: order.scheduled_start_date
+          ? String(order.scheduled_start_date).split('T')[0]
+          : '-',
+        scheduledEndDate: order.scheduled_end_date
+          ? String(order.scheduled_end_date).split('T')[0]
+          : '-',
+        factory:
+          order.factory?.name ?? order.factory_name ?? order.factoryName ?? '-',
+        status: order.status ?? 'PENDING',
       }));
-      
-      setWorkOrders(formattedOrders);
+
+      setWorkOrders(formatted);
     } catch (error) {
       console.error('작업 지시서 목록 로드 실패:', error);
       setWorkOrders([]);
@@ -48,7 +62,7 @@ const WorkOrderListView = () => {
         <h3 className="text-xl text-[#674529]">작업 지시서 목록</h3>
         <select
           value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
+          onChange={e => setFilterType(e.target.value)}
           className="px-4 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none"
         >
           <option value="전체">전체</option>
@@ -62,37 +76,53 @@ const WorkOrderListView = () => {
         <div className="text-center py-8 text-gray-500">작업 지시서가 없습니다.</div>
       ) : (
         <div className="space-y-4">
-          {workOrders.map((order) => (
-          <div key={order.id} className="border border-gray-200 rounded-lg p-5">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h4 className="text-base font-semibold text-gray-900 mb-1">{order.title}</h4>
-                <p className="text-sm text-gray-600">{order.product}</p>
+          {workOrders.map(order => (
+            <div
+              key={order.id}
+              className="border border-gray-200 rounded-lg p-5"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h4 className="text-base font-semibold text-gray-900 mb-1">
+                    {order.workOrderNumber}
+                  </h4>
+                  <p className="text-sm text-gray-600">
+                    {order.productName} / {order.bomName}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 mb-1">
+                    공장: {order.factory}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    상태: {order.status}
+                  </p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-500 mb-1">작업자: {order.manager}</p>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-4 gap-x-8 gap-y-3 text-sm">
-              <div className="justify-between">
-                <span className="text-gray-600">원재료코드</span>
-                <p className="text-gray-900 font-medium">{order.id}</p>
-              </div>
-              <div className="justify-between">
-                <span className="text-gray-600">원재료명</span>
-                <p className="text-gray-900 font-medium">{order.material}</p>
-              </div>
-              <div className="justify-between">
-                <span className="text-gray-600">필요량</span>
-                <p className="text-gray-900 font-medium">{order.quantity}</p>
-              </div>
-              <div className="justify-between">
-                <span className="text-gray-600">작업예정일</span>
-                <p className="text-gray-900 font-medium">{order.deadlineDate}</p>
+              <div className="grid grid-cols-4 gap-x-8 gap-y-3 text-sm">
+                <div>
+                  <span className="text-gray-600 block">계획 수량</span>
+                  <p className="text-gray-900 font-medium">{order.quantity}</p>
+                </div>
+                <div>
+                  <span className="text-gray-600 block">시작 예정일</span>
+                  <p className="text-gray-900 font-medium">
+                    {order.scheduledStartDate}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-gray-600 block">종료 예정일</span>
+                  <p className="text-gray-900 font-medium">
+                    {order.scheduledEndDate}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-gray-600 block">ID</span>
+                  <p className="text-gray-900 font-medium">{order.id}</p>
+                </div>
               </div>
             </div>
-          </div>
           ))}
         </div>
       )}

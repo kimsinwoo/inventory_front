@@ -4,7 +4,7 @@ import { labelAPI, itemsAPI } from '../../api';
 import usePdfDownload from '../common/usePdfDownload';
 import { getPrinters, addPrinter, removePrinter, getDefaultPrinter, setDefaultPrinter } from '../../utils/printerUtils';
 
-const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
+const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData, onTemplateCreationRequired }) => {
   const [labelSize, setLabelSize] = useState(''); // '100X100' | '80X60' | '50X30' | '28X16'
   const [manufactureDate, setManufactureDate] = useState(new Date().toISOString().split('T')[0]);
   const [quantity, setQuantity] = useState('');
@@ -224,8 +224,14 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
     if (isProcessing || !isFormValid) return;
 
     const labelData = {
-      labelSize, productName, manufactureDate, expiryDate: calculatedExpiryDate,
-      quantity, printerName: selectedPrinter, itemData,
+      labelSize, 
+      productName, 
+      manufactureDate, 
+      expiryDate: calculatedExpiryDate,
+      quantity, 
+      printerName: selectedPrinter, 
+      selectedPrinter, // fallback을 위해 중복 추가
+      itemData,
     };
 
     setIsProcessing(true);
@@ -271,12 +277,46 @@ const LabelPrintModal = ({ isOpen, onClose, onPrintComplete, itemData }) => {
       }
     } catch (error) {
       console.error('라벨 프린트 중 오류:', error);
-      const msg = error?.response?.data?.message ?? error?.message ?? '알 수 없는 오류';
-      alert(`라벨 프린트 중 오류가 발생했습니다: ${msg}`);
+      const errorMessage = error?.response?.data?.message ?? error?.message ?? '알 수 없는 오류';
+      const errorStatus = error?.response?.status ?? 0;
+      const errorDetail = error?.response?.data?.detail ?? '';
+      const errorString = String(errorDetail || errorMessage || '');
+      
+      // API 오류(500) 및 category_and_form 관련 오류 체크
+      const isTemplateError = errorStatus === 500 || 
+                             errorMessage.includes('category_and_form') ||
+                             errorMessage.includes('Cannot read properties of null') ||
+                             errorString.includes('category_and_form') ||
+                             errorString.includes('Cannot read properties of null');
+      
+      if (isTemplateError && onTemplateCreationRequired) {
+        // 라벨 템플릿 생성 모달 표시
+        console.log('📋 라벨 템플릿 생성 필요:', {
+          itemId: itemDetail?.id ?? itemDetail?.itemId ?? itemData?.itemId ?? itemData?.id,
+          itemCode: itemDetail?.code ?? itemData?.itemCode ?? '',
+          itemName: itemDetail?.name ?? itemDetail?.itemName ?? itemData?.itemName ?? productName,
+        });
+        
+        onTemplateCreationRequired({
+          itemId: itemDetail?.id ?? itemDetail?.itemId ?? itemData?.itemId ?? itemData?.id,
+          itemCode: itemDetail?.code ?? itemData?.itemCode ?? '',
+          itemName: itemDetail?.name ?? itemDetail?.itemName ?? itemData?.itemName ?? productName,
+          productName: productName,
+          storageCondition: labelTemplate?.storageCondition ?? itemDetail?.storageCondition ?? itemDetail?.storage_condition ?? '냉동',
+          registrationNumber: labelTemplate?.registrationNumber ?? itemDetail?.code ?? itemData?.itemCode ?? '',
+          categoryAndForm: labelTemplate?.categoryAndForm ?? itemDetail?.category ?? '',
+          ingredients: labelTemplate?.ingredients ?? itemDetail?.ingredients ?? '',
+          rawMaterials: labelTemplate?.rawMaterials ?? itemDetail?.rawMaterials ?? itemDetail?.raw_materials ?? '',
+          actualWeight: labelTemplate?.actualWeight ?? itemDetail?.actualWeight ?? itemDetail?.actual_weight ?? '',
+        });
+      } else {
+        // 일반 오류는 alert 표시
+        alert(`라벨 프린트 중 오류가 발생했습니다: ${errorMessage}`);
+      }
     } finally {
       setIsProcessing(false);
     }
-  }, [isProcessing, isFormValid, labelSize, productName, manufactureDate, calculatedExpiryDate, quantity, selectedPrinter, itemData, downloadPdf, onPrintComplete, onClose, itemDetail, labelTemplate]);
+  }, [isProcessing, isFormValid, labelSize, productName, manufactureDate, calculatedExpiryDate, quantity, selectedPrinter, itemData, downloadPdf, onPrintComplete, onClose, itemDetail, labelTemplate, onTemplateCreationRequired]);
 
   if (!isOpen) return null;
 

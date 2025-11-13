@@ -1,9 +1,19 @@
 import { X } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { itemsAPI, factoriesAPI, storageConditionsAPI } from '../../api';
+
+// 카테고리 값과 라벨 매핑
+const CATEGORY_OPTIONS = [
+  { value: '', label: '카테고리 선택' },
+  { value: 'Finished', label: '완제품' },
+  { value: 'SemiFinished', label: '반제품' },
+  { value: 'RawMaterial', label: '원재료' },
+  { value: 'Supply', label: '소모품' },
+];
 
 const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
+    category: '', // 추가: 품목 카테고리
     itemName: '',
     itemCode: '',
     unit: '',
@@ -17,6 +27,7 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
     storageConditionId: '', // 보관 조건 ID
     notes: '', // 메모
   });
+
   const [itemsList, setItemsList] = useState([]);
   const [factoriesList, setFactoriesList] = useState([]);
   const [storageConditionsList, setStorageConditionsList] = useState([]);
@@ -24,7 +35,7 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
   const [isLoadingFactories, setIsLoadingFactories] = useState(false);
   const [isLoadingStorageConditions, setIsLoadingStorageConditions] = useState(false);
 
-  // 품목 목록, 공장 목록, 보관 조건 목록 로드
+  // 품목, 공장, 보관 조건 목록 로드
   useEffect(() => {
     if (isOpen) {
       loadItems();
@@ -75,9 +86,30 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
     }
   };
 
+  // 카테고리 변경
+  const handleCategoryChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      category: value,
+      selectedItemId: '', // 카테고리 바꿀 때 품목 초기화
+      itemName: '',
+      itemCode: '',
+      unit: '',
+    }));
+  };
+
+  // 카테고리에 따른 품목 필터
+  const filteredItemsList = useMemo(() => {
+    if (!formData.category) return [];
+    return Array.isArray(itemsList)
+      ? itemsList.filter(item => item.category === formData.category)
+      : [];
+  }, [itemsList, formData.category]);
+
+  // 품목 선택
   const handleItemChange = (e) => {
     const selectedValue = e.target.value;
-    
     if (!selectedValue) {
       setFormData((prev) => ({
         ...prev,
@@ -89,16 +121,26 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
       return;
     }
 
-    // itemsList에서 찾기 (백엔드 데이터)
-    const selectedItem = itemsList.find(item => {
+    // filteredItemsList에서 찾기 (선택된 카테고리에 한정)
+    const selectedItem = filteredItemsList.find(item => {
       const itemId = item.id?.toString();
       const itemCode = item.code || item.itemCode;
       const itemName = item.name || item.itemName;
-      return itemId === selectedValue || itemCode === selectedValue || itemName === selectedValue;
+      return (
+        itemId === selectedValue ||
+        itemCode === selectedValue ||
+        itemName === selectedValue
+      );
     });
 
     if (selectedItem) {
-      const itemId = selectedItem.id?.toString() || selectedItem.code || selectedItem.itemCode || selectedItem.name || selectedItem.itemName || selectedValue;
+      const itemId =
+        selectedItem.id?.toString() ||
+        selectedItem.code ||
+        selectedItem.itemCode ||
+        selectedItem.name ||
+        selectedItem.itemName ||
+        selectedValue;
       setFormData((prev) => ({
         ...prev,
         selectedItemId: itemId,
@@ -127,9 +169,7 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     try {
-      // 백엔드 API를 통해 입고 대기 항목 저장
       const receivingData = {
         itemCode: formData.itemCode,
         itemName: formData.itemName,
@@ -143,12 +183,14 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
         storageConditionId: formData.storageConditionId ? parseInt(formData.storageConditionId) : undefined,
         notes: formData.notes,
         selectedItemId: formData.selectedItemId,
+        category: formData.category,
       };
 
       await onSubmit(receivingData);
-      
+
       // 폼 초기화
       setFormData({
+        category: '',
         itemName: '',
         itemCode: '',
         unit: '',
@@ -190,6 +232,27 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
         <form onSubmit={handleSubmit}>
           <div className='max-h-[70vh] overflow-y-auto px-6 py-4'>
             <div className='grid gap-4'>
+
+              {/* 카테고리 선택 */}
+              <div>
+                <label className='mb-1 block text-sm font-medium text-gray-700'>
+                  품목 카테고리 <span className='text-red-500'>*</span>
+                </label>
+                <select
+                  name='category'
+                  value={formData.category}
+                  onChange={handleCategoryChange}
+                  required
+                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529] disabled:bg-gray-100 disabled:cursor-not-allowed'
+                >
+                  {CATEGORY_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* 품목명 선택 */}
               <div>
                 <label className='mb-1 block text-sm font-medium text-gray-700'>
@@ -200,20 +263,25 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
                   value={formData.selectedItemId}
                   onChange={handleItemChange}
                   required
-                  disabled={isLoadingItems}
+                  disabled={isLoadingItems || !formData.category}
                   className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529] disabled:bg-gray-100 disabled:cursor-not-allowed'
                 >
                   <option value=''>
-                    {isLoadingItems ? '품목 목록 로딩 중...' : '품목을 선택하세요'}
+                    {isLoadingItems
+                      ? '품목 목록 로딩 중...'
+                      : !formData.category
+                        ? '먼저 카테고리를 선택하세요'
+                        : filteredItemsList.length === 0
+                          ? '해당 카테고리에 품목이 없습니다'
+                          : '품목을 선택하세요'}
                   </option>
-                  {itemsList.map((item) => {
-                    // 백엔드 데이터: id가 있으면 id를 value로, 없으면 code 또는 name 사용
+                  {filteredItemsList.map((item) => {
                     const itemValue = item.id?.toString() || item.code || item.itemCode || item.name || item.itemName;
                     const itemName = item.name || item.itemName || '';
                     const itemCode = item.code || item.itemCode || '';
                     return (
-                      <option 
-                        key={item.id || item.code || item.itemCode || item.name} 
+                      <option
+                        key={item.id || item.code || item.itemCode || item.name}
                         value={itemValue}
                       >
                         {itemName} {itemCode ? `(${itemCode})` : ''}
@@ -299,91 +367,6 @@ const AddReceivingModal = ({ isOpen, onClose, onSubmit }) => {
                     </option>
                   ))}
                 </select>
-              </div>
-
-              {/* 공급업체명 */}
-              <div>
-                <label className='mb-1 block text-sm font-medium text-gray-700'>
-                  공급업체명
-                </label>
-                <input
-                  type='text'
-                  name='supplierName'
-                  value={formData.supplierName}
-                  onChange={handleChange}
-                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
-                  placeholder='공급업체명을 입력하세요'
-                />
-              </div>
-
-              {/* 바코드 */}
-              <div>
-                <label className='mb-1 block text-sm font-medium text-gray-700'>
-                  바코드
-                </label>
-                <input
-                  type='text'
-                  name='barcode'
-                  value={formData.barcode}
-                  onChange={handleChange}
-                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
-                  placeholder='바코드를 입력하세요'
-                />
-              </div>
-
-              {/* 도매가 */}
-              <div>
-                <label className='mb-1 block text-sm font-medium text-gray-700'>
-                  도매가
-                </label>
-                <input
-                  type='number'
-                  name='wholesalePrice'
-                  value={formData.wholesalePrice}
-                  onChange={handleChange}
-                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
-                  placeholder='도매가를 입력하세요'
-                  min='0'
-                  step='0.01'
-                />
-              </div>
-
-              {/* 보관 조건 */}
-              <div>
-                <label className='mb-1 block text-sm font-medium text-gray-700'>
-                  보관 조건
-                </label>
-                <select
-                  name='storageConditionId'
-                  value={formData.storageConditionId}
-                  onChange={handleChange}
-                  disabled={isLoadingStorageConditions}
-                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529] disabled:bg-gray-100 disabled:cursor-not-allowed'
-                >
-                  <option value=''>
-                    {isLoadingStorageConditions ? '보관 조건 로딩 중...' : '보관 조건을 선택하세요'}
-                  </option>
-                  {storageConditionsList.map((condition) => (
-                    <option key={condition.id} value={condition.id}>
-                      {condition.name || condition.condition_name || `보관 조건 ${condition.id}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 메모 */}
-              <div>
-                <label className='mb-1 block text-sm font-medium text-gray-700'>
-                  메모
-                </label>
-                <textarea
-                  name='notes'
-                  value={formData.notes}
-                  onChange={handleChange}
-                  rows={2}
-                  className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#674529] focus:outline-none focus:ring-1 focus:ring-[#674529]'
-                  placeholder='메모를 입력하세요'
-                />
               </div>
             </div>
           </div>

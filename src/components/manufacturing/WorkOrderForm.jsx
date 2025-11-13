@@ -1,313 +1,298 @@
-import { useState, useEffect } from 'react';
-import { workOrdersAPI, bomsAPI, authAPI } from '../../api';
+// src/pages/WorkOrder/WorkOrderForm.jsx
+import { useState, useEffect, useMemo } from 'react';
+import { workOrdersAPI, bomsAPI, factoriesAPI } from '../../api';
 
 const WorkOrderForm = () => {
-  const [bomOptions, setBomOptions] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [boms, setBoms] = useState([]);
+  const [factories, setFactories] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // 폼 데이터 - 작업 내용
-  const [workFormData, setWorkFormData] = useState({
-    title: '',
-    workContent: '세척',
-    materialName: '',
-    quantity: '',
-    scheduledDate: '',
-    managerId: '',
-  });
-
-  // 폼 데이터 - BOM
-  const [bomFormData, setBomFormData] = useState({
+  const [formData, setFormData] = useState({
     bomId: '',
-    quantity: '1',
-    scheduledDate: '',
-    managerId: '',
+    factoryId: '',
+    plannedQuantity: '',
+    scheduledStartDate: '',
+    scheduledEndDate: '',
+    notes: '',
   });
 
   useEffect(() => {
-    loadBoms();
-    loadUsers();
+    void loadBoms();
+    void loadFactories();
   }, []);
 
   const loadBoms = async () => {
     try {
       const response = await bomsAPI.getBoms();
-      const data = response.data?.data || response.data || [];
-      const bomsList = Array.isArray(data) ? data : [];
-      setBomOptions(bomsList.map(bom => ({
-        id: bom.id,
-        name: bom.name || bom.product_name || `BOM-${bom.id}`,
-      })));
+      const root = response.data ?? {};
+      const rows = Array.isArray(root) ? root : root.rows ?? [];
+      setBoms(rows);
     } catch (error) {
       console.error('BOM 목록 로드 실패:', error);
-      setBomOptions([]);
+      setBoms([]);
     }
   };
 
-  const loadUsers = async () => {
+  const loadFactories = async () => {
     try {
-      const response = await authAPI.getUsers();
-      const data = response.data?.data || response.data || [];
-      const usersList = Array.isArray(data) ? data : [];
-      setUsers(usersList);
+      const response = await factoriesAPI.getFactories();
+      const data = response.data?.data ?? response.data ?? [];
+      const list = Array.isArray(data) ? data : [];
+      setFactories(list);
     } catch (error) {
-      console.error('사용자 목록 로드 실패:', error);
-      setUsers([]);
+      console.error('공장 목록 로드 실패:', error);
+      setFactories([]);
     }
   };
 
-  const handleWorkInputChange = (field, value) => {
-    setWorkFormData(prev => ({ ...prev, [field]: value }));
+  const handleChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
-  const handleBomInputChange = (field, value) => {
-    setBomFormData(prev => ({ ...prev, [field]: value }));
+  const selectedBom = useMemo(() => {
+    if (!formData.bomId) return undefined;
+    const id = Number(formData.bomId);
+    if (Number.isNaN(id)) return undefined;
+    return boms.find(b => b.id === id);
+  }, [formData.bomId, boms]);
+
+  const selectedFactory = useMemo(() => {
+    if (!formData.factoryId) return undefined;
+    const id = Number(formData.factoryId);
+    if (Number.isNaN(id)) return undefined;
+    return factories.find(f => f.id === id);
+  }, [formData.factoryId, factories]);
+
+  const selectedProductItemId = useMemo(() => {
+    if (!selectedBom) return undefined;
+    return (
+      selectedBom.product_item_id ??
+      selectedBom.productItemId ??
+      selectedBom.product_item?.id ??
+      selectedBom.productItem?.id
+    );
+  }, [selectedBom]);
+
+  const selectedUnit = useMemo(() => {
+    if (!selectedBom) return 'EA';
+    return (
+      selectedBom.unit ??
+      selectedBom.product_item?.unit ??
+      selectedBom.productItem?.unit ??
+      'EA'
+    );
+  }, [selectedBom]);
+
+  const selectedProductName = useMemo(() => {
+    if (!selectedBom) return '';
+    return (
+      selectedBom.product_item?.name ??
+      selectedBom.productItem?.name ??
+      selectedBom.product_name ??
+      selectedBom.name ??
+      ''
+    );
+  }, [selectedBom]);
+
+  const formatDateTime = value => {
+    if (!value) return undefined;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return undefined;
+    return date.toISOString();
   };
 
-  const handleWorkSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
+
+    if (!formData.bomId || !formData.factoryId || !formData.plannedQuantity) {
+      alert('BOM, 공장, 계획 수량을 모두 입력해주세요.');
+      return;
+    }
+
+    if (!selectedBom) {
+      alert('선택한 BOM 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    if (!selectedProductItemId) {
+      alert('선택한 BOM에 완제품/반제품 ID가 없습니다. BOM 설정을 확인해주세요.');
+      return;
+    }
+
+    const plannedQuantityNumber = Number(formData.plannedQuantity);
+    if (!Number.isFinite(plannedQuantityNumber) || plannedQuantityNumber <= 0) {
+      alert('계획 수량은 0보다 큰 숫자여야 합니다.');
+      return;
+    }
+
+    const payload = {
+      productItemId: Number(selectedProductItemId),
+      bomId: Number(formData.bomId),
+      factoryId: Number(formData.factoryId),
+      plannedQuantity: plannedQuantityNumber,
+      scheduledStartDate: formatDateTime(formData.scheduledStartDate),
+      scheduledEndDate: formatDateTime(formData.scheduledEndDate),
+      notes: formData.notes.trim() === '' ? undefined : formData.notes.trim(),
+    };
+
     try {
       setLoading(true);
-      if (!workFormData.title || !workFormData.materialName || !workFormData.quantity || !workFormData.managerId) {
-        alert('모든 필수 필드를 입력해주세요.');
-        return;
-      }
-      const workData = {
-        title: workFormData.title,
-        work_content: workFormData.workContent,
-        material_name: workFormData.materialName,
-        quantity: parseFloat(workFormData.quantity) || 0,
-        scheduled_date: workFormData.scheduledDate,
-        manager_id: parseInt(workFormData.managerId),
-      };
-      await workOrdersAPI.createWorkOrder(workData);
+      await workOrdersAPI.createWorkOrder(payload);
       alert('작업 지시서가 등록되었습니다.');
-      // 폼 초기화
-      setWorkFormData({
-        title: '',
-        workContent: '세척',
-        materialName: '',
-        quantity: '',
-        scheduledDate: '',
-        managerId: '',
+      setFormData({
+        bomId: '',
+        factoryId: '',
+        plannedQuantity: '',
+        scheduledStartDate: '',
+        scheduledEndDate: '',
+        notes: '',
       });
     } catch (error) {
       console.error('작업 지시서 등록 실패:', error);
-      alert('작업 지시서 등록에 실패했습니다.');
+      const message =
+        error?.response?.data?.message ??
+        error?.message ??
+        '작업 지시서 등록에 실패했습니다.';
+      alert(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleBomSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      setLoading(true);
-      if (!bomFormData.bomId || !bomFormData.managerId) {
-        alert('BOM과 담당자를 선택해주세요.');
-        return;
-      }
-      const bomData = {
-        bom_id: parseInt(bomFormData.bomId),
-        quantity: parseInt(bomFormData.quantity) || 1,
-        scheduled_date: bomFormData.scheduledDate,
-        manager_id: parseInt(bomFormData.managerId),
-      };
-      await workOrdersAPI.createWorkOrder(bomData);
-      alert('BOM 작업 지시서가 등록되었습니다.');
-      // 폼 초기화
-      setBomFormData({
-        bomId: '',
-        quantity: '1',
-        scheduledDate: '',
-        managerId: '',
-      });
-    } catch (error) {
-      console.error('BOM 작업 지시서 등록 실패:', error);
-      alert('BOM 작업 지시서 등록에 실패했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 사용자 목록에서 고유한 position 목록 추출
-  const positions = [...new Set(users.map(user => user.position).filter(Boolean))];
+  const selectedBomName = selectedBom?.name ?? (selectedBom ? `BOM-${selectedBom.id}` : '');
+  const selectedFactoryName = selectedFactory?.name ?? '';
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <h3 className="text-xl text-[#674529] mb-6">작업 지시서 등록</h3>
 
-      <div className="grid grid-cols-2 gap-6">
-        {/* 좌측 - 작업 내용 */}
-        <div className="border border-gray-200 rounded-lg p-5">
-          <h4 className="text-base font-semibold text-[#674529] mb-4 text-center">작업 내용</h4>
-
-          <form onSubmit={handleWorkSubmit} className="space-y-3">
-            <div className="flex items-center gap-4">
-              <label className="w-24 text-sm text-gray-700">제목</label>
-              <input
-                type="text"
-                placeholder="Title"
-                value={workFormData.title}
-                onChange={(e) => handleWorkInputChange('title', e.target.value)}
-                className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
-                required
-              />
-            </div>
-
-            <div className="flex items-center gap-4">
-              <label className="w-24 text-sm text-gray-700">작업 내용</label>
-              <select
-                value={workFormData.workContent}
-                onChange={(e) => handleWorkInputChange('workContent', e.target.value)}
-                className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
-              >
-                <option value="세척">세척</option>
-                <option value="전처리">전처리</option>
-                <option value="제조">제조</option>
-                <option value="포장">포장</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <label className="w-24 text-sm text-gray-700">원재료명</label>
-              <input
-                type="text"
-                placeholder="딸기"
-                value={workFormData.materialName}
-                onChange={(e) => handleWorkInputChange('materialName', e.target.value)}
-                className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
-                required
-              />
-            </div>
-
-            <div className="flex items-center gap-4">
-              <label className="w-24 text-sm text-gray-700">작업량</label>
-              <div className="flex-1 flex items-center gap-2">
-                <input
-                  type="number"
-                  placeholder="100"
-                  value={workFormData.quantity}
-                  onChange={(e) => handleWorkInputChange('quantity', e.target.value)}
-                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
-                  required
-                />
-                <span className="text-sm text-gray-600">kg</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <label className="w-24 text-sm text-gray-700">작업 예정일</label>
-              <input
-                type="date"
-                value={workFormData.scheduledDate}
-                onChange={(e) => handleWorkInputChange('scheduledDate', e.target.value)}
-                className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
-              />
-            </div>
-
-            <div className="flex items-center gap-4">
-              <label className="w-24 text-sm text-gray-700">담당자</label>
-              <select
-                value={workFormData.managerId}
-                onChange={(e) => handleWorkInputChange('managerId', e.target.value)}
-                className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
-                required
-              >
-                <option value="">담당자 선택</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.full_name || user.username} ({user.position || 'N/A'})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex justify-center pt-2">
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-8 py-2 bg-[#674529] text-white text-sm rounded hover:bg-[#553821] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? '등록 중...' : '작업 지시서 등록'}
-              </button>
-            </div>
-          </form>
+      <form onSubmit={handleSubmit} className="space-y-4 max-w-3xl">
+        <div className="flex items-center gap-4">
+          <label className="w-32 text-sm text-gray-700">BOM 선택</label>
+          <select
+            value={formData.bomId}
+            onChange={e => handleChange('bomId', e.target.value)}
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+            required
+          >
+            <option value="">BOM을 선택하세요</option>
+            {boms.map(bom => (
+              <option key={bom.id} value={bom.id}>
+                {bom.name ?? `BOM-${bom.id}`}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* 우측 - BOM */}
-        <div className="border border-gray-200 rounded-lg p-5">
-          <h4 className="text-base font-semibold text-[#674529] mb-4 text-center">BOM</h4>
-
-          <form onSubmit={handleBomSubmit} className="space-y-3">
-            <div className="flex items-center gap-4">
-              <label className="w-24 text-sm text-gray-700">BOM</label>
-              <select
-                value={bomFormData.bomId}
-                onChange={(e) => handleBomInputChange('bomId', e.target.value)}
-                className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
-                required
-              >
-                <option value="">BOM 선택</option>
-                {bomOptions.map((bom) => (
-                  <option key={bom.id} value={bom.id}>
-                    {bom.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <label className="w-24 text-sm text-gray-700">수량</label>
-              <input
-                type="number"
-                value={bomFormData.quantity}
-                onChange={(e) => handleBomInputChange('quantity', e.target.value)}
-                className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
-                min="1"
-                required
-              />
-            </div>
-
-            <div className="flex items-center gap-4">
-              <label className="w-24 text-sm text-gray-700">작업 예정일</label>
-              <input
-                type="date"
-                value={bomFormData.scheduledDate}
-                onChange={(e) => handleBomInputChange('scheduledDate', e.target.value)}
-                className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
-              />
-            </div>
-
-            <div className="flex items-center gap-4">
-              <label className="w-24 text-sm text-gray-700">담당자</label>
-              <select
-                value={bomFormData.managerId}
-                onChange={(e) => handleBomInputChange('managerId', e.target.value)}
-                className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
-                required
-              >
-                <option value="">담당자 선택</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.full_name || user.username} ({user.position || 'N/A'})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex justify-center pt-2">
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-8 py-2 bg-[#674529] text-white text-sm rounded hover:bg-[#553821] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? '등록 중...' : '작업 지시서 등록'}
-              </button>
-            </div>
-          </form>
+        <div className="flex items-center gap-4">
+          <label className="w-32 text-sm text-gray-700">완제품/반제품</label>
+          <div className="flex-1 px-3 py-2 text-sm border border-gray-100 rounded bg-gray-50 text-gray-800">
+            {selectedProductName || '-'}
+          </div>
         </div>
-      </div>
+
+        <div className="flex items-center gap-4">
+          <label className="w-32 text-sm text-gray-700">공장</label>
+          <select
+            value={formData.factoryId}
+            onChange={e => handleChange('factoryId', e.target.value)}
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+            required
+          >
+            <option value="">공장을 선택하세요</option>
+            {factories.map(factory => (
+              <option key={factory.id} value={factory.id}>
+                {factory.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <label className="w-32 text-sm text-gray-700">계획 수량</label>
+          <div className="flex-1 flex items-center gap-2">
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={formData.plannedQuantity}
+              onChange={e => handleChange('plannedQuantity', e.target.value)}
+              className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+              placeholder="예: 100"
+              required
+            />
+            <span className="text-sm text-gray-600">{selectedUnit}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <label className="w-32 text-sm text-gray-700">작업 시작 예정</label>
+          <input
+            type="datetime-local"
+            value={formData.scheduledStartDate}
+            onChange={e => handleChange('scheduledStartDate', e.target.value)}
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+          />
+        </div>
+
+        <div className="flex items-center gap-4">
+          <label className="w-32 text-sm text-gray-700">작업 종료 예정</label>
+          <input
+            type="datetime-local"
+            value={formData.scheduledEndDate}
+            onChange={e => handleChange('scheduledEndDate', e.target.value)}
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+          />
+        </div>
+
+        <div className="flex items-start gap-4">
+          <label className="w-32 text-sm text-gray-700 pt-1">비고</label>
+          <textarea
+            value={formData.notes}
+            onChange={e => handleChange('notes', e.target.value)}
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none"
+            rows={4}
+            maxLength={500}
+            placeholder="필요 시 작업 지시서에 대한 비고를 입력하세요. (최대 500자)"
+          />
+        </div>
+
+        <div className="flex justify-center pt-4">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-10 py-2.5 bg-[#674529] text-white text-sm rounded hover:bg-[#553821] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? '등록 중...' : '작업 지시서 등록'}
+          </button>
+        </div>
+
+        {(selectedBom || selectedFactory) && (
+          <div className="mt-4 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600">
+            {selectedBom && (
+              <p className="mb-1">
+                <span className="font-semibold text-gray-700">선택된 BOM:</span>{' '}
+                {selectedBomName}
+              </p>
+            )}
+            {selectedProductItemId && (
+              <p className="mb-1">
+                <span className="font-semibold text-gray-700">완제품/반제품 ID:</span>{' '}
+                {selectedProductItemId}
+              </p>
+            )}
+            {selectedFactory && (
+              <p>
+                <span className="font-semibold text-gray-700">공장:</span>{' '}
+                {selectedFactoryName} (ID: {selectedFactory.id})
+              </p>
+            )}
+          </div>
+        )}
+      </form>
     </div>
   );
 };
