@@ -36,7 +36,7 @@ const AlertModal = ({ isOpen, onClose, title, message, type = 'info' }) => {
         <div className='px-6 py-8'>
           <div className='flex flex-col items-center space-y-4'>
             {getIcon()}
-            <p className='text-center text-gray-700'>{message}</p>
+            <p className='text-center text-gray-700'>{message === "Cannot add or update a child row: a foreign key constraint fails (`inventory_development`.`PlannedTransactions`, CONSTRAINT `PlannedTransactions_ibfk_3` FOREIGN KEY (`requested_by_user_id`) REFERENCES `Users` (`id`) ON UPDATE CASCADE)" ? "사용자 정보를 확인해주세요." : message}</p>
           </div>
         </div>
 

@@ -1,7 +1,7 @@
 const BasicTabSelector = ({ activeTab, onTabChange }) => {
   const tabs = [
     { id: 'items', name: '품목 등록' },
-    // { id: 'processes', name: '공장 정보' },
+    { id: 'processes', name: '공장 정보' },
     { id: 'bom', name: 'BOM 관리' },
     { id: 'storage', name: '보관 조건' },
   ];
