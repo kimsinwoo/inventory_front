@@ -39,8 +39,8 @@ node server.js
 
 서버가 정상적으로 실행되면 다음 메시지가 표시됩니다:
 ```
-PDF generation server running on http://localhost:3001
-API endpoint: http://localhost:3001/api/generate-pdf
+PDF generation server running on http://223.130.143.87:3001
+API endpoint: http://223.130.143.87:3001/api/generate-pdf
 ```
 
 ### 2. React 앱 실행

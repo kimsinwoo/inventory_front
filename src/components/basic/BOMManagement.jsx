@@ -1,8 +1,13 @@
 import { useCallback, useEffect } from 'react';
 import BOMRegistration from './BOMRegistration';
 import BOMList from './BOMList';
+<<<<<<< HEAD
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchBoms, createBom, deleteBom } from '../../store/modules/basic/actions';
+=======
+
+const API = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://223.130.143.87/api';
+>>>>>>> cbd6d9ee436f68a7a9dc5ebefa28877a8d40d452
 
 const BOMManagement = () => {
   const dispatch = useDispatch();

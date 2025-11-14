@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Package, Edit, Trash2, Factory, Save, X } from 'lucide-react';
 import Pagination from '../common/Pagination';
+<<<<<<< HEAD
 import { fetchItems, updateItem, deleteItem } from '../../store/modules/basic/actions';
 import {
   selectItems,
@@ -9,6 +10,10 @@ import {
   selectItemOperation,
   selectItemOperationLoading,
 } from '../../store/modules/basic/selectors';
+=======
+
+const API = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://223.130.143.87/api';
+>>>>>>> cbd6d9ee436f68a7a9dc5ebefa28877a8d40d452
 
 const BasicItemList = () => {
   const dispatch = useDispatch();

@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { Package, Trash2, X, Check } from 'lucide-react';
 import { rawMaterialMaster } from '../../data/rawMaterialMaster';
 
+<<<<<<< HEAD
 const BOMRegistration = ({ onSave }) => {
+=======
+const API = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://223.130.143.87/api';
+>>>>>>> cbd6d9ee436f68a7a9dc5ebefa28877a8d40d452
 
   // BOM 등록용 상태
   const [currentBOMName, setCurrentBOMName] = useState('');

@@ -1,12 +1,35 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Plus } from 'lucide-react';
+<<<<<<< HEAD
 import { createItem } from '../../store/modules/basic/actions';
 import {
   selectItemOperation,
   selectItemOperationLoading,
   selectItemOperationError,
 } from '../../store/modules/basic/selectors';
+=======
+
+const API = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://223.130.143.87/api';
+
+// 안전 파서: 응답이 배열이든 {data: []}든 배열을 뽑아줌
+const pickRows = (res) => {
+  if (!res) return [];
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.data?.data)) return res.data.data;
+  // { ok:true, data:{ rows:[...] } } 같은 형태도 대비
+  if (Array.isArray(res?.data?.rows)) return res.data.rows;
+  return [];
+};
+
+// 공장/보관조건 레코드를 표준화
+const toFactoryOption = (raw) => ({
+  id: raw?.id ?? raw?.factory_id ?? raw?.FactoryId ?? raw?.ID,
+  name: raw?.name ?? raw?.title ?? raw?.factory_name ?? '-',
+  type: raw?.type ?? raw?.FactoryType ?? raw?.category ?? '',
+});
+>>>>>>> cbd6d9ee436f68a7a9dc5ebefa28877a8d40d452
 
 const BasicNewItem = () => {
   const dispatch = useDispatch();
