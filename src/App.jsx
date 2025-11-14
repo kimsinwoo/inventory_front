@@ -15,6 +15,7 @@ import Mypage from './pages/Mypage';
 import { isMobile } from 'react-device-detect';
 import Scanner from './pages/Scanner';
 import { useEffect } from 'react';
+import Test from './pages/Test';
 
 export default function App() {
   useEffect(() => {
@@ -23,10 +24,6 @@ export default function App() {
   console.log(isMobile);
   return (
     <Routes>
-      {
-        isMobile ? (
-          <Route path='*' element={<Scanner />} />
-        ) : (
           <>
             <Route path='/login' element={<Login />} />
             <Route path='/signup' element={<Signup />} />
@@ -80,9 +77,8 @@ export default function App() {
               <Route path='user/nav2' element={<UserManagement subPage='nav2' />} />
               <Route path='mypage' element={<Mypage />} />
             </Route>
+            <Route path='/test' element={<Test />} />
           </>
-        )
-      }
     </Routes>
   );
 }
