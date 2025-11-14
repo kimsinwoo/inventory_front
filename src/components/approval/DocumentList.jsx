@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Download, Filter, ChevronDown } from 'lucide-react';
+import { approvalAPI } from '../../api';
 
 const DocumentList = () => {
   const [filters, setFilters] = useState({
@@ -7,6 +8,52 @@ const DocumentList = () => {
     status: '전체',
     searchTerm: '',
   });
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadDocuments = async () => {
+      try {
+        setLoading(true);
+        // approvalAPI에 getDocuments 메서드가 없으므로, inbox를 사용하거나 새로 추가 필요
+        // 일단 inbox 사용
+        const response = await approvalAPI.getInbox();
+        const data = response.data?.data || response.data || [];
+        const docsList = Array.isArray(data) ? data : [];
+        
+        // API 데이터를 컴포넌트 형식에 맞게 변환
+        const formattedDocs = docsList.map((doc) => {
+          const statusMap = {
+            'PENDING': '결재중',
+            'APPROVED': '승인완료',
+            'REJECTED': '반려',
+          };
+          
+          return {
+            id: doc.id,
+            docNumber: doc.document_number || doc.documentNumber || `DOC-${doc.id}`,
+            title: doc.title || doc.document_title || '문서 제목 없음',
+            type: doc.type || doc.document_type || '기타',
+            status: statusMap[doc.status] || doc.status || '결재중',
+            statusColor: doc.status === 'APPROVED' ? 'bg-[#d4edda] text-[#28a745]' : 
+                        doc.status === 'REJECTED' ? 'bg-[#f8d7da] text-[#dc3545]' : 
+                        'bg-[#ffedd4] text-[#f65814]',
+            author: doc.author?.name || doc.author_name || doc.created_by || '작성자 없음',
+            createdDate: doc.created_at ? doc.created_at.split('T')[0] : '',
+            approvalSteps: doc.approval_steps || doc.approvalSteps || [],
+          };
+        });
+        
+        setDocuments(formattedDocs);
+      } catch (error) {
+        console.error('문서 목록 로드 실패:', error);
+        setDocuments([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadDocuments();
+  }, []);
 
   const handleFilterChange = (key, value) => {
     setFilters({ ...filters, [key]: value });
@@ -20,53 +67,6 @@ const DocumentList = () => {
     });
   };
 
-  const documents = [
-    {
-      id: 1,
-      docNumber: 'DOC-2024-0001',
-      title: '1월 1주차 생산 원료 보고서',
-      type: '생산 원료 보고서',
-      status: '결재중',
-      statusColor: 'bg-[#ffedd4] text-[#f65814]',
-      author: '김생산',
-      createdDate: '2024-01-15',
-      approvalSteps: [
-        { step: 1, status: 'completed' },
-        { step: 2, status: 'pending' },
-        { step: 3, status: 'waiting' },
-      ],
-    },
-    {
-      id: 2,
-      docNumber: 'DOC-2024-0002',
-      title: '제품 불량 발생 보고서',
-      type: '불량 보고서',
-      status: '반려',
-      statusColor: 'bg-[#f8d7da] text-[#dc3545]',
-      author: '이품질',
-      createdDate: '2024-01-14',
-      approvalSteps: [
-        { step: 1, status: 'completed' },
-        { step: 2, status: 'rejected' },
-        { step: 3, status: 'waiting' },
-      ],
-    },
-    {
-      id: 3,
-      docNumber: 'DOC-2024-0003',
-      title: '안전점검표 (1월 2주차)',
-      type: '안전점검표',
-      status: '승인완료',
-      statusColor: 'bg-[#d4edda] text-[#28a745]',
-      author: '안전관리자',
-      createdDate: '2024-01-12',
-      approvalSteps: [
-        { step: 1, status: 'completed' },
-        { step: 2, status: 'completed' },
-        { step: 3, status: 'completed' },
-      ],
-    },
-  ];
 
   const documentTypes = ['전체', '생산 원료 보고서', '불량 보고서', '안전점검표'];
   const documentStatuses = ['전체', '결재중', '반려', '승인완료'];
@@ -199,65 +199,83 @@ const DocumentList = () => {
             </tr>
           </thead>
           <tbody className='divide-y divide-gray-100'>
-            {filteredDocuments.map((doc) => (
-              <tr
-                key={doc.id}
-                className='transition-colors hover:bg-gray-50/50'
-              >
-                <td className='px-4 py-4 text-sm font-medium text-gray-900'>
-                  {doc.docNumber}
-                </td>
-                <td className='px-4 py-4 text-sm text-gray-900'>{doc.title}</td>
-                <td className='px-4 py-4 text-sm text-gray-700'>{doc.type}</td>
-                <td className='px-4 py-4'>
-                  <span
-                    className={`inline-flex rounded px-3 py-1 text-xs font-medium ${doc.statusColor}`}
-                  >
-                    {doc.status}
-                  </span>
-                </td>
-                <td className='px-4 py-4 text-sm text-gray-700'>
-                  {doc.author}
-                </td>
-                <td className='px-4 py-4 text-sm text-gray-700'>
-                  {doc.createdDate}
-                </td>
-                <td className='px-4 py-4'>
-                  <div className='flex items-center space-x-2'>
-                    {doc.approvalSteps.map((stepData, index) => (
-                      <div
-                        key={index}
-                        className='flex items-center'
-                      >
-                        <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium ${
-                            stepData.status === 'completed'
-                              ? 'bg-[#d4edda] text-[#28a745]'
-                              : stepData.status === 'pending'
-                                ? 'bg-[#ffedd4] text-[#f65814]'
-                                : stepData.status === 'rejected'
-                                  ? 'bg-[#f8d7da] text-[#dc3545]'
-                                  : 'bg-gray-200 text-gray-500'
-                          }`}
-                        >
-                          {stepData.step}
-                        </div>
-                        {index < doc.approvalSteps.length - 1 && (
-                          <div className='mx-1 text-gray-400'>→</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </td>
-                <td className='px-4 py-4'>
-                  {doc.status === '승인완료' && (
-                    <button className='text-gray-500 transition-colors hover:text-[#674529]'>
-                      <Download className='h-5 w-5' />
-                    </button>
-                  )}
+            {loading ? (
+              <tr>
+                <td colSpan={8} className='px-4 py-8 text-center text-sm text-gray-500'>
+                  불러오는 중...
                 </td>
               </tr>
-            ))}
+            ) : filteredDocuments.length === 0 ? (
+              <tr>
+                <td colSpan={8} className='px-4 py-8 text-center text-sm text-gray-500'>
+                  문서가 없습니다.
+                </td>
+              </tr>
+            ) : (
+              filteredDocuments.map((doc) => (
+                <tr
+                  key={doc.id}
+                  className='transition-colors hover:bg-gray-50/50'
+                >
+                  <td className='px-4 py-4 text-sm font-medium text-gray-900'>
+                    {doc.docNumber}
+                  </td>
+                  <td className='px-4 py-4 text-sm text-gray-900'>{doc.title}</td>
+                  <td className='px-4 py-4 text-sm text-gray-700'>{doc.type}</td>
+                  <td className='px-4 py-4'>
+                    <span
+                      className={`inline-flex rounded px-3 py-1 text-xs font-medium ${doc.statusColor}`}
+                    >
+                      {doc.status}
+                    </span>
+                  </td>
+                  <td className='px-4 py-4 text-sm text-gray-700'>
+                    {doc.author}
+                  </td>
+                  <td className='px-4 py-4 text-sm text-gray-700'>
+                    {doc.createdDate}
+                  </td>
+                  <td className='px-4 py-4'>
+                    <div className='flex items-center space-x-2'>
+                      {doc.approvalSteps && doc.approvalSteps.length > 0 ? (
+                        doc.approvalSteps.map((stepData, index) => (
+                          <div
+                            key={index}
+                            className='flex items-center'
+                          >
+                            <div
+                              className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium ${
+                                stepData.status === 'completed'
+                                  ? 'bg-[#d4edda] text-[#28a745]'
+                                  : stepData.status === 'pending'
+                                    ? 'bg-[#ffedd4] text-[#f65814]'
+                                    : stepData.status === 'rejected'
+                                      ? 'bg-[#f8d7da] text-[#dc3545]'
+                                      : 'bg-gray-200 text-gray-500'
+                              }`}
+                            >
+                              {stepData.step || index + 1}
+                            </div>
+                            {index < doc.approvalSteps.length - 1 && (
+                              <div className='mx-1 text-gray-400'>→</div>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <span className='text-xs text-gray-400'>진행단계 없음</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className='px-4 py-4'>
+                    {doc.status === '승인완료' && (
+                      <button className='text-gray-500 transition-colors hover:text-[#674529]'>
+                        <Download className='h-5 w-5' />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

@@ -19,11 +19,35 @@ const ShippingList = () => {
   const fetchSavedLabels = async () => {
     try {
       setLoadingLabels(true);
+<<<<<<< HEAD
       const response = await labelAPI.getAllLabels({ page: 1, limit: 100 });
       const rows = Array.isArray(response.data)
         ? response.data
         : response.data?.data?.rows || response.data?.rows || [];
       setSavedLabels(rows);
+=======
+      // 템플릿 목록 조회 사용
+      const response = await labelAPI.getTemplates({ page: 1, limit: 100 });
+      
+      // API 응답 구조에 맞게 수정
+      // response.data는 { ok: true, message: "...", data: [...], meta: {...} } 형태
+      const responseData = response.data;
+      let templateList = [];
+      
+      if (responseData) {
+        // data 필드가 배열인 경우
+        if (Array.isArray(responseData.data)) {
+          templateList = responseData.data;
+        } else if (Array.isArray(responseData)) {
+          // response.data 자체가 배열인 경우
+          templateList = responseData;
+        } else if (responseData.templates && Array.isArray(responseData.templates)) {
+          templateList = responseData.templates;
+        }
+      }
+      
+      setSavedLabels(templateList);
+>>>>>>> origin/label-print
     } catch (error) {
       console.error('저장된 라벨 목록 가져오기 실패:', error);
       setSavedLabels([]);
@@ -157,6 +181,7 @@ const ShippingList = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
+<<<<<<< HEAD
                     {savedLabels.map((label) => (
                       <tr key={label.id} className="hover:bg-gray-50">
                         <td className="px-3 py-2 text-gray-900">
@@ -179,6 +204,37 @@ const ShippingList = () => {
                         </td>
                       </tr>
                     ))}
+=======
+                    {savedLabels.map((label) => {
+                      // item_name이 null일 수 있으므로 처리
+                      const displayItemName = label.item_name || label.itemName || label.productName || (label.item_id ? `품목 ID: ${label.item_id}` : '-');
+                      const displayStorageCondition = label.storage_condition || label.storageCondition || '냉동';
+                      const displayRegistrationNumber = label.registration_number || label.registrationNumber || '-';
+                      
+                      return (
+                        <tr key={label.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 text-gray-900">
+                            {displayItemName}
+                          </td>
+                          <td className="px-3 py-2 text-gray-700">
+                            {displayStorageCondition}
+                          </td>
+                          <td className="px-3 py-2 text-gray-700">
+                            {displayRegistrationNumber}
+                          </td>
+                          <td className="px-3 py-2">
+                            <button
+                              onClick={() => handleSelectLabel(label)}
+                              className="flex items-center space-x-1 px-3 py-1 bg-[#674529] text-white rounded-lg hover:bg-[#553821] transition-colors text-xs font-medium"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              <span>선택</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+>>>>>>> origin/label-print
                   </tbody>
                 </table>
               </div>

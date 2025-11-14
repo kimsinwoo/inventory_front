@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { Plus } from 'lucide-react';
+<<<<<<< HEAD
 <<<<<<< HEAD
 import { createItem } from '../../store/modules/basic/actions';
 import {
@@ -30,14 +30,12 @@ const toFactoryOption = (raw) => ({
   type: raw?.type ?? raw?.FactoryType ?? raw?.category ?? '',
 });
 >>>>>>> cbd6d9ee436f68a7a9dc5ebefa28877a8d40d452
+=======
+import { itemsAPI, factoriesAPI } from '../../api';
+>>>>>>> origin/label-print
 
 const BasicNewItem = () => {
-  const dispatch = useDispatch();
-
-  // Redux 상태 조회
-  const itemOperation = useSelector(selectItemOperation);
-  const itemOperationLoading = useSelector(selectItemOperationLoading);
-  const itemOperationError = useSelector(selectItemOperationError);
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     code: '',
@@ -52,6 +50,7 @@ const BasicNewItem = () => {
   });
 
   const [errors, setErrors] = useState({});
+<<<<<<< HEAD
   const factoryOptions = [
     { id: 1, name: '1공장' },
     { id: 2, name: '2공장' },
@@ -63,6 +62,24 @@ const BasicNewItem = () => {
       alert(itemOperationError || '등록 중 오류가 발생했습니다.');
     }
   }, [itemOperationError]);
+=======
+  const [factoryOptions, setFactoryOptions] = useState([]);
+
+  // 공장 목록 로드
+  useEffect(() => {
+    const loadFactories = async () => {
+      try {
+        const response = await factoriesAPI.getFactories();
+        const data = response.data?.data || response.data || [];
+        setFactoryOptions(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('공장 목록 로드 실패:', error);
+        setFactoryOptions([]);
+      }
+    };
+    loadFactories();
+  }, []);
+>>>>>>> origin/label-print
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -97,17 +114,18 @@ const BasicNewItem = () => {
     return m[String(v).trim().toLowerCase()] || v;
   };
 
-  const handleSubmit = () => {
-    if (itemOperationLoading) return;
+  const handleSubmit = async () => {
+    if (loading) return;
     if (!validateForm()) return;
 
-    // Redux Saga를 통해 품목 등록 요청
-    dispatch(
-      createItem.request({
+    try {
+      setLoading(true);
+      const response = await itemsAPI.createItem({
         code: formData.code.trim(),
         name: formData.name.trim(),
         category: formData.category,
         factoryId: Number(formData.factoryId),
+<<<<<<< HEAD
         storageConditionId: formData.storageConditionId,
         shelfLife: Number(formData.shelfLife),
         shortage: Number(formData.shortage),
@@ -130,6 +148,37 @@ const BasicNewItem = () => {
         unit: '',
         wholesalePrice: '',
       });
+=======
+        shortage: Number(formData.shortage) || 0,
+        shelfLife: formData.shelfLife ? Number(formData.shelfLife) : undefined,
+        unit: normUnit(formData.unit),
+        wholesalePrice: Number(formData.wholesalePrice) || 0,
+      });
+
+      if (response.data?.ok || response.data?.data) {
+        alert('품목이 성공적으로 등록되었습니다!');
+        // 폼 초기화
+        setFormData({
+          code: '',
+          name: '',
+          category: '',
+          factoryId: '',
+          storageConditionId: '',
+          shelfLife: '',
+          shortage: '',
+          unit: '',
+          wholesalePrice: '',
+        });
+        setErrors({});
+      } else {
+        throw new Error(response.data?.message || '등록에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('품목 등록 실패:', error);
+      alert(error.response?.data?.message || error.message || '등록 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+>>>>>>> origin/label-print
     }
   };
 
@@ -179,7 +228,7 @@ const BasicNewItem = () => {
             className={`w-full rounded-xl border ${
               errors.name ? 'border-red-300' : 'border-gray-100'
             } bg-gray-100 px-4 py-2.5 text-sm`}
-            disabled={itemOperationLoading}
+            disabled={loading}
           />
           {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
         </div>
@@ -197,7 +246,7 @@ const BasicNewItem = () => {
               className={`w-full rounded-xl border ${
                 errors.code ? 'border-red-300' : 'border-gray-100'
               } bg-gray-100 px-4 py-2.5 text-sm`}
-              disabled={itemOperationLoading}
+              disabled={loading}
             />
             {errors.code && <p className="mt-1 text-xs text-red-500">{errors.code}</p>}
           </div>
@@ -211,7 +260,7 @@ const BasicNewItem = () => {
               className={`w-full rounded-xl border ${
                 errors.category ? 'border-red-300' : 'border-gray-100'
               } bg-gray-100 px-4 py-2.5 text-sm`}
-              disabled={itemOperationLoading}
+              disabled={loading}
             >
               <option value="" disabled hidden>카테고리 선택</option>
               <option value="원재료">원재료</option>
@@ -231,7 +280,7 @@ const BasicNewItem = () => {
               className={`w-full rounded-xl border ${
                 errors.factoryId ? 'border-red-300' : 'border-gray-100'
               } bg-gray-100 px-4 py-2.5 text-sm`}
-              disabled={itemOperationLoading}
+              disabled={loading}
             >
               {factorySelect}
             </select>
@@ -247,7 +296,7 @@ const BasicNewItem = () => {
               className={`w-full rounded-xl border ${
                 errors.storageConditionId ? 'border-red-300' : 'border-gray-100'
               } bg-gray-100 px-4 py-2.5 text-sm`}
-              disabled={itemOperationLoading}
+              disabled={loading}
             >
               {storageSelect}
             </select>
@@ -268,10 +317,15 @@ const BasicNewItem = () => {
               value={formData.shelfLife}
               onChange={(e) => handleInputChange('shelfLife', e.target.value)}
               placeholder="예: 7"
+<<<<<<< HEAD
               className={`w-full rounded-xl border ${
                 errors.shelfLife ? 'border-red-300' : 'border-gray-100'
               } bg-gray-100 px-4 py-2.5 text-sm`}
               disabled={itemOperationLoading}
+=======
+              className="w-full rounded-xl border border-gray-100 bg-gray-100 px-4 py-2.5 text-sm"
+              disabled={loading}
+>>>>>>> origin/label-print
             />
             {errors.shelfLife && (
               <p className='mt-1 text-xs text-red-500'>{errors.shelfLife}</p>
@@ -289,7 +343,7 @@ const BasicNewItem = () => {
               className={`w-full rounded-xl border ${
                 errors.shortage ? 'border-red-300' : 'border-gray-100'
               } bg-gray-100 px-4 py-2.5 text-sm`}
-              disabled={itemOperationLoading}
+              disabled={loading}
             />
             {errors.shortage && <p className="mt-1 text-xs text-red-500">{errors.shortage}</p>}
           </div>
@@ -303,7 +357,7 @@ const BasicNewItem = () => {
               className={`w-full rounded-xl border ${
                 errors.unit ? 'border-red-300' : 'border-gray-100'
               } bg-gray-100 px-4 py-2.5 text-sm`}
-              disabled={itemOperationLoading}
+              disabled={loading}
             >
               <option value="" disabled hidden>단위</option>
               <option value='kg'>kg</option>
@@ -326,7 +380,7 @@ const BasicNewItem = () => {
               className={`w-full rounded-xl border ${
                 errors.wholesalePrice ? 'border-red-300' : 'border-gray-100'
               } bg-gray-100 px-4 py-2.5 text-sm`}
-              disabled={itemOperationLoading}
+              disabled={loading}
             />
             {errors.wholesalePrice && (
               <p className="mt-1 text-xs text-red-500">{errors.wholesalePrice}</p>
@@ -343,11 +397,11 @@ const BasicNewItem = () => {
             <label className="mb-2 block text-sm font-medium text-gray-700">&nbsp;</label>
             <button
               type="button"
-              disabled={itemOperationLoading}
+              disabled={loading}
               onClick={handleSubmit}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#674529] px-6 py-2.5 text-sm font-medium text-white transition-all hover:bg-[#553821] hover:shadow-md active:scale-95 disabled:opacity-60"
             >
-              <span>{itemOperationLoading ? '등록중…' : '등록'}</span>
+              <span>{loading ? '등록중…' : '등록'}</span>
             </button>
           </div>
         </div>

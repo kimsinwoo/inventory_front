@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { Package, Edit, Trash2, Factory, Save, X } from 'lucide-react';
 import Pagination from '../common/Pagination';
+<<<<<<< HEAD
 <<<<<<< HEAD
 import { fetchItems, updateItem, deleteItem } from '../../store/modules/basic/actions';
 import {
@@ -23,6 +23,13 @@ const BasicItemList = () => {
   const itemsLoading = useSelector(selectItemsLoading);
   const itemOperation = useSelector(selectItemOperation);
   const itemOperationLoading = useSelector(selectItemOperationLoading);
+=======
+import { itemsAPI } from '../../api';
+
+const BasicItemList = () => {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+>>>>>>> origin/label-print
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -32,8 +39,21 @@ const BasicItemList = () => {
 
   // 컴포넌트 마운트 시 품목 목록 조회
   useEffect(() => {
-    dispatch(fetchItems.request());
-  }, [dispatch]);
+    const loadItems = async () => {
+      try {
+        setLoading(true);
+        const response = await itemsAPI.getItems();
+        const data = response.data?.data || response.data || [];
+        setItems(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('품목 목록 로드 실패:', error);
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadItems();
+  }, []);
 
   // 품목 수정/삭제 성공 시 목록 다시 조회
   useEffect(() => {
@@ -52,17 +72,28 @@ const BasicItemList = () => {
 
   const handleDelete = (itemId) => {
     if (!window.confirm('정말로 이 품목을 삭제하시겠습니까?')) return;
+<<<<<<< HEAD
     dispatch(deleteItem.request(itemId));
 
     // 현재 페이지의 마지막 항목 삭제 시 페이지 조정
     if ((currentPage - 1) * itemsPerPage >= items.length - 1) {
       setCurrentPage((p) => Math.max(1, p - 1));
+=======
+    try {
+      await itemsAPI.deleteItem(itemId);
+      setItems(items.filter(item => item.id !== itemId));
+      alert('품목이 삭제되었습니다.');
+    } catch (error) {
+      console.error('품목 삭제 실패:', error);
+      alert(error.response?.data?.message || '품목 삭제에 실패했습니다.');
+>>>>>>> origin/label-print
     }
   };
 
   const handleEditStart = (item) => {
     setEditingItemId(item.id);
     setEditForm({
+<<<<<<< HEAD
       name: item.name,
       category: item.category,
       factoryId: item.factoryId || item.Factory?.id || '',
@@ -70,6 +101,13 @@ const BasicItemList = () => {
       shelfLife: item.shelfLife || item.shelf_life || '',
       wholesalePrice: item.wholesalePrice ?? item.wholesale_price ?? '',
       unit: item.unit,
+=======
+      code: item.code || '',
+      name: item.name || '',
+      category: item.category || '',
+      unit: item.unit || '',
+      wholesalePrice: item.wholesale_price ?? item.wholesalePrice ?? "",
+>>>>>>> origin/label-print
     });
   };
 
@@ -85,6 +123,7 @@ const BasicItemList = () => {
     setEditForm({});
   };
 
+<<<<<<< HEAD
   const handleEditSave = (item) => {
     const payload = {
       name: editForm.name.trim(),
@@ -104,6 +143,39 @@ const BasicItemList = () => {
     if (factoryId === 1) return '1공장';
     if (factoryId === 2) return '2공장';
     return item?.Factory?.name || item?.factory?.name || '-';
+=======
+  const handleEditSave = async (item) => {
+    setEditLoading(true);
+    try {
+      const payload = {
+        code: editForm.code,
+        name: editForm.name,
+        category: editForm.category,
+        unit: editForm.unit,
+        wholesalePrice: Number(editForm.wholesalePrice) || 0,
+      };
+
+      const response = await itemsAPI.updateItem(item.id, payload);
+      
+      if (response.data?.ok || response.data?.data) {
+        // 성공 처리 - 목록 새로고침
+        const itemsResponse = await itemsAPI.getItems();
+        const data = itemsResponse.data?.data || itemsResponse.data || [];
+        setItems(Array.isArray(data) ? data : []);
+        
+        setEditingItemId(null);
+        setEditForm({});
+        alert('품목이 성공적으로 수정되었습니다.');
+      } else {
+        throw new Error(response.data?.message || "수정 중 오류가 발생했습니다.");
+      }
+    } catch (error) {
+      console.error('품목 수정 실패:', error);
+      alert(error.response?.data?.message || error.message || "수정 중 오류가 발생했습니다.");
+    } finally {
+      setEditLoading(false);
+    }
+>>>>>>> origin/label-print
   };
 
   const getStorageName = (item) =>

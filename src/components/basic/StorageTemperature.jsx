@@ -1,14 +1,37 @@
 import { Thermometer, X, Plus } from 'lucide-react';
+<<<<<<< HEAD
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchStorageConditions, updateStorageCondition } from '../../store/modules/basic/actions';
+=======
+import { storageConditionsAPI } from '../../api';
+>>>>>>> origin/label-print
 
 const StorageTemperature = () => {
   const dispatch = useDispatch();
 
+<<<<<<< HEAD
   // 리덕스 스토어에서 보관 조건 데이터 가져오기
   const { data: storageConditions, loading } = useSelector((state) => state.basic.storageConditions);
   const { data: storageOperation } = useSelector((state) => state.basic.storageOperation);
+=======
+  // 보관 조건 목록 불러오기
+  const fetchConditions = async () => {
+    try {
+      setLoading(true);
+      setErrorMsg('');
+      const response = await storageConditionsAPI.getStorageConditions();
+      const data = response.data?.data || response.data || [];
+      setStorageConditions(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('보관 조건 조회 실패:', error);
+      setErrorMsg(error.response?.data?.message || '보관 조건 정보를 불러오지 못했습니다.');
+      setStorageConditions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+>>>>>>> origin/label-print
 
   // 컴포넌트 마운트 시 보관 조건 목록 조회
   useEffect(() => {
@@ -46,6 +69,7 @@ const StorageTemperature = () => {
       setError('품목명을 입력해주세요');
       return;
     }
+<<<<<<< HEAD
 
     // 현재 보관 조건 찾기
     const currentStorage = storageConditions.find((s) => s.id === currentStorageId);
@@ -79,6 +103,26 @@ const StorageTemperature = () => {
         id: storageId,
         data: updatedStorage,
       }));
+=======
+    setModalLoading(true);
+    try {
+      const response = await storageConditionsAPI.createStorageCondition({
+        name: newConditionName.trim(),
+      });
+      
+      if (response.data?.ok || response.data?.data) {
+        // 정상 추가: 다시 목록 가져옴
+        fetchConditions();
+        closeModal();
+      } else {
+        setErrorMsg(response.data?.message || '추가 실패');
+      }
+    } catch (error) {
+      console.error('보관조건 추가 실패:', error);
+      setErrorMsg(error.response?.data?.message || '서버 오류 (추가 실패)');
+    } finally {
+      setModalLoading(false);
+>>>>>>> origin/label-print
     }
   };
 

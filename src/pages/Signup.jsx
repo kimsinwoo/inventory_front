@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { UserPlus, User, Lock, Phone, Mail, Calendar, IdCard, Briefcase, Building2 } from 'lucide-react';
+<<<<<<< HEAD
 import { signup } from '../store/modules/auth/actions';
+=======
+import { authAPI } from '../api';
+>>>>>>> origin/label-print
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -46,7 +50,7 @@ const Signup = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // 비밀번호 확인
@@ -55,6 +59,7 @@ const Signup = () => {
       return;
     }
 
+<<<<<<< HEAD
     // Redux Saga를 통한 회원가입 처리
     // 화면에 표시된 모든 필드를 백엔드로 전송
     dispatch(signup.request({
@@ -67,6 +72,30 @@ const Signup = () => {
       department: formData.department,
       hireDate: formData.hireDate
     }));
+=======
+    try {
+      const response = await authAPI.join({
+        username: formData.userId,
+        password: formData.password,
+        full_name: formData.name,
+        phone_number: formData.phone,
+        email: formData.email,
+        position: formData.position,
+        department: formData.department,
+        hire_date: formData.hireDate ? new Date(formData.hireDate).toISOString() : undefined,
+      });
+
+      if (response.data?.ok || response.data?.user) {
+        alert('회원가입이 완료되었습니다!');
+        navigate('/login');
+      } else {
+        throw new Error(response.data?.message || '회원가입에 실패했습니다.');
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || '회원가입에 실패했습니다.';
+      alert(errorMessage);
+    }
+>>>>>>> origin/label-print
   };
 
   return (

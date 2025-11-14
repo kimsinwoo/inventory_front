@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
+<<<<<<< HEAD
 import { useDispatch, useSelector } from 'react-redux';
+=======
+>>>>>>> origin/label-print
 import { Package } from 'lucide-react';
 import ReceivingWaitingList from '../components/receiving/ReceivingWaitingList';
 import AddReceivingModal from '../components/receiving/AddReceivingModal';
@@ -10,7 +13,9 @@ import AddShippingModal from '../components/shipping/AddShippingModal';
 import ShippingCompletedList from '../components/shipping/ShippingCompletedList';
 import ShippingConfirmModal from '../components/shipping/ShippingConfirmModal';
 import LabelPrintModal from '../components/receiving/LabelPrintModal';
+import LabelTemplateCreationModal from '../components/receiving/LabelTemplateCreationModal';
 import AlertModal from '../components/common/AlertModal';
+<<<<<<< HEAD
 import { getItemByName } from '../data/items';
 import { receivingAPI } from '../api';
 
@@ -26,6 +31,9 @@ import {
   selectPendingIssuings,
   selectCompletedIssuings,
 } from '../store/modules/issuing/selectors';
+=======
+import { shippingAPI, plannedTransactionsAPI } from '../api';
+>>>>>>> origin/label-print
 
 const Receiving = ({ subPage = 'nav1' }) => {
   // Redux 설정
@@ -70,44 +78,13 @@ const Receiving = ({ subPage = 'nav1' }) => {
   };
 
   // 입고 대기 목록 상태
-  const [waitingData, setWaitingData] = useState([
-    {
-      id: 1,
-      itemCode: 'RAW001',
-      itemName: '닭고기 (가슴살)',
-      expectedQuantity: '50Kg',
-      expectedDate: '2025-10-24',
-      supplier: '신선식품',
-    },
-    {
-      id: 2,
-      itemCode: 'RAW002',
-      itemName: '소고기(등심)',
-      expectedQuantity: '70Kg',
-      expectedDate: '2025-10-24',
-      supplier: '프리미엄육가공',
-    },
-    {
-      id: 3,
-      itemCode: 'RAW003',
-      itemName: '당근',
-      expectedQuantity: '30Kg',
-      expectedDate: '2025-10-25',
-      supplier: '유기농산물',
-    },
-    {
-      id: 4,
-      itemCode: 'RAW004',
-      itemName: '고구마',
-      expectedQuantity: '40Kg',
-      expectedDate: '2025-10-25',
-      supplier: '유기농산물',
-    },
-  ]);
+  const [waitingData, setWaitingData] = useState([]);
+  const [isLoadingReceiving, setIsLoadingReceiving] = useState(false);
 
   // 입고 완료 목록 상태
   const [completedData, setCompletedData] = useState([]);
 
+<<<<<<< HEAD
   // 출고 관련 상태는 Redux로 관리됨 (pendingIssuings, completedIssuings)
   // 출고 대기 목록 로드 - Redux 사용
   useEffect(() => {
@@ -121,6 +98,293 @@ const Receiving = ({ subPage = 'nav1' }) => {
       return () => clearTimeout(timer);
     }
   }, [subPage, dispatch]);
+=======
+  // 출고 대기 목록 상태
+  const [shippingWaitingData, setShippingWaitingData] = useState([]);
+  const [isLoadingShipping, setIsLoadingShipping] = useState(false);
+
+  // 출고 완료 목록 상태
+  const [shippingCompletedData, setShippingCompletedData] = useState([]);
+>>>>>>> origin/label-print
+
+  // 헬퍼 함수: item 객체에서 itemCode와 itemName 안전하게 추출
+  const extractItemInfo = (item) => {
+    let itemCode = '-';
+    let itemName = '-';
+    
+    // item.item가 객체인 경우 처리
+    if (item.item && typeof item.item === 'object' && item.item !== null && !Array.isArray(item.item)) {
+      // item.item 객체에서 code와 name 추출
+      const itemObj = item.item;
+      
+      // code 추출 (문자열인지 확인)
+      if (itemObj.code && typeof itemObj.code === 'string') {
+        itemCode = itemObj.code;
+      } else if (itemObj.itemCode && typeof itemObj.itemCode === 'string') {
+        itemCode = itemObj.itemCode;
+      } else if (itemObj.id && typeof itemObj.id === 'string') {
+        itemCode = itemObj.id;
+      } else if (itemObj.id && typeof itemObj.id === 'number') {
+        itemCode = String(itemObj.id);
+      }
+      
+      // name 추출 (문자열인지 확인)
+      if (itemObj.name && typeof itemObj.name === 'string') {
+        itemName = itemObj.name;
+      } else if (itemObj.itemName && typeof itemObj.itemName === 'string') {
+        itemName = itemObj.itemName;
+      }
+    }
+    
+    // item.item가 객체가 아니거나 값이 없는 경우 직접 필드에서 추출
+    if (itemCode === '-') {
+      if (item.item_code && typeof item.item_code === 'string') {
+        itemCode = item.item_code;
+      } else if (item.itemCode && typeof item.itemCode === 'string') {
+        itemCode = item.itemCode;
+      } else if (typeof item.item === 'string') {
+        itemCode = item.item;
+      }
+    }
+    
+    if (itemName === '-') {
+      if (item.item_name && typeof item.item_name === 'string') {
+        itemName = item.item_name;
+      } else if (item.itemName && typeof item.itemName === 'string') {
+        itemName = item.itemName;
+      }
+    }
+    
+    return {
+      itemCode: itemCode || '-',
+      itemName: itemName || '-',
+    };
+  };
+
+  // 입고/출고 목록 로드
+  useEffect(() => {
+    if (subPage === 'nav1') {
+      // 입고 탭
+      loadReceivingWaitingList();
+      loadReceivingCompletedList();
+    } else if (subPage === 'nav2') {
+      // 출고 탭
+      loadShippingWaitingList();
+      loadShippingCompletedList();
+    }
+  }, [subPage]);
+
+  // 입고 대기 목록 로드
+  const loadReceivingWaitingList = async () => {
+    try {
+      setIsLoadingReceiving(true);
+      console.log('📦 입고 대기 목록 로드 시작...');
+      // planned-transactions API에서 입고 예정 트랜잭션 조회 (RECEIVE, PENDING 또는 APPROVED 상태)
+      const response = await plannedTransactionsAPI.getPlannedTransactions({
+        transactionType: 'RECEIVE',
+        // 대기 목록: PENDING(대기), APPROVED(승인됨) 상태만 조회
+        // COMPLETED(완료), REJECTED(거부) 상태는 제외
+      });
+      const data = response.data?.data || response.data || [];
+      const transactionsList = Array.isArray(data) ? data : [];
+      
+      // 클라이언트 사이드 필터링: COMPLETED, REJECTED 상태 제외 (대기 목록이므로)
+      const waitingTransactions = transactionsList.filter((item) => {
+        const status = item.status || item.transaction_status || '';
+        // 상태가 없거나, PENDING, APPROVED인 경우만 포함
+        // COMPLETED, REJECTED는 완료 목록에서 처리하므로 제외
+        return !status || 
+               status === 'PENDING' || 
+               status === 'APPROVED' ||
+               (status !== 'COMPLETED' && status !== 'REJECTED');
+      });
+      
+      // API 데이터를 컴포넌트 형식에 맞게 변환
+      const formattedData = waitingTransactions.map((item) => {
+        const { itemCode, itemName } = extractItemInfo(item);
+        
+        // 최종적으로 문자열이 아닌 경우 처리 (null, undefined, 객체 등)
+        const safeItemCode = itemCode && typeof itemCode === 'string' ? itemCode : String(itemCode || '-');
+        const safeItemName = itemName && typeof itemName === 'string' ? itemName : String(itemName || '-');
+        
+        // item.category 추출 (출고 시 라벨 프린트 규칙 결정에 사용)
+        const itemCategory = item.item?.category || 
+                             item.item?.categoryLabel ||
+                             item.category ||
+                             item.categoryLabel ||
+                             '';
+        
+        return {
+          id: item.id,
+          itemCode: safeItemCode,
+          itemName: safeItemName,
+          expectedQuantity: item.quantity ? `${item.quantity} ${item.unit || 'kg'}` : '0',
+          expectedDate: item.scheduled_date || item.scheduledDate || item.expected_date || item.expectedDate || '',
+          supplier: item.supplier_name || item.supplierName || '공급업체',
+          transactionId: item.id,
+          itemCategory, // 출고 시 라벨 프린트 규칙 결정에 사용
+        };
+      });
+      
+      setWaitingData(formattedData);
+      console.log('✅ 입고 대기 목록 로드 완료:', formattedData);
+    } catch (error) {
+      console.error('❌ 입고 대기 목록 로드 실패:', error);
+      const errorMessage = error.response?.data?.message || error.message || '입고 대기 목록을 불러오는데 실패했습니다.';
+      showAlert(errorMessage, 'error');
+      setWaitingData([]);
+    } finally {
+      setIsLoadingReceiving(false);
+    }
+  };
+
+  // 입고 완료 목록 로드
+  const loadReceivingCompletedList = async () => {
+    try {
+      console.log('📦 입고 완료 목록 로드 시작...');
+      // planned-transactions API에서 입고 완료 트랜잭션 조회 (RECEIVE, COMPLETED 상태)
+      const response = await plannedTransactionsAPI.getPlannedTransactions({
+        transactionType: 'RECEIVE',
+        status: 'COMPLETED', // 완료 상태
+        });
+        const data = response.data?.data || response.data || [];
+      const transactionsList = Array.isArray(data) ? data : [];
+      
+      // API 데이터를 컴포넌트 형식에 맞게 변환
+      const formattedData = transactionsList.map((item) => {
+        const { itemCode, itemName } = extractItemInfo(item);
+        
+        // 최종적으로 문자열이 아닌 경우 처리 (null, undefined, 객체 등)
+        const safeItemCode = itemCode && typeof itemCode === 'string' ? itemCode : String(itemCode || '-');
+        const safeItemName = itemName && typeof itemName === 'string' ? itemName : String(itemName || '-');
+        
+        return {
+          id: item.id,
+          itemCode: safeItemCode,
+          itemName: safeItemName,
+          expectedQuantity: item.quantity ? `${item.quantity} ${item.unit || 'kg'}` : '0',
+          receivedQuantity: item.received_quantity || item.receivedQuantity || item.quantity || '0',
+          unitCount: item.unit_count || item.unitCount || '1',
+          receivedDate: item.completed_date || item.completedDate || item.updated_at || item.created_at || '',
+          status: '정상',
+          transactionId: item.id,
+        };
+      });
+      
+      setCompletedData(formattedData);
+      console.log('✅ 입고 완료 목록 로드 완료:', formattedData);
+    } catch (error) {
+      console.error('❌ 입고 완료 목록 로드 실패:', error);
+      const errorMessage = error.response?.data?.message || error.message || '입고 완료 목록을 불러오는데 실패했습니다.';
+      showAlert(errorMessage, 'error');
+      setCompletedData([]);
+    }
+  };
+
+  const loadShippingWaitingList = async () => {
+    try {
+      setIsLoadingShipping(true);
+      console.log('📦 출고 대기 목록 로드 시작...');
+      // planned-transactions API에서 출고 예정 트랜잭션 조회 (ISSUE, PENDING 또는 APPROVED 상태)
+      const response = await plannedTransactionsAPI.getPlannedTransactions({
+        transactionType: 'ISSUE',
+        // 대기 목록: PENDING(대기), APPROVED(승인됨) 상태만 조회
+        // COMPLETED(완료), REJECTED(거부) 상태는 제외
+      });
+      const data = response.data?.data || response.data || [];
+      const transactionsList = Array.isArray(data) ? data : [];
+      
+      // 클라이언트 사이드 필터링: COMPLETED, REJECTED 상태 제외 (대기 목록이므로)
+      const waitingTransactions = transactionsList.filter((item) => {
+        const status = item.status || item.transaction_status || '';
+        // 상태가 없거나, PENDING, APPROVED인 경우만 포함
+        // COMPLETED, REJECTED는 완료 목록에서 처리하므로 제외
+        return !status || 
+               status === 'PENDING' || 
+               status === 'APPROVED' ||
+               (status !== 'COMPLETED' && status !== 'REJECTED');
+      });
+      
+      // API 데이터를 컴포넌트 형식에 맞게 변환
+      const formattedData = waitingTransactions.map((item) => {
+        const { itemCode, itemName } = extractItemInfo(item);
+        
+        // 최종적으로 문자열이 아닌 경우 처리 (null, undefined, 객체 등)
+        const safeItemCode = itemCode && typeof itemCode === 'string' ? itemCode : String(itemCode || '-');
+        const safeItemName = itemName && typeof itemName === 'string' ? itemName : String(itemName || '-');
+        
+        // item.category 추출 (출고 시 라벨 프린트 규칙 결정에 사용)
+        const itemCategory = item.item?.category || 
+                             item.item?.categoryLabel ||
+                             item.category ||
+                             item.categoryLabel ||
+                             '';
+        
+        return {
+          id: item.id,
+          itemCode: safeItemCode,
+          itemName: safeItemName,
+          expectedQuantity: item.quantity ? `${item.quantity} ${item.unit || 'kg'}` : '0',
+          shippedQuantity: item.shipped_quantity || item.shippedQuantity || '',
+          unitCount: item.unit_count || item.unitCount || '1',
+          expectedDate: item.scheduled_date || item.scheduledDate || item.expected_date || item.expectedDate || '',
+          transactionId: item.id,
+          itemCategory, // 출고 시 라벨 프린트 규칙 결정에 사용
+        };
+      });
+      
+      setShippingWaitingData(formattedData);
+      console.log('✅ 출고 대기 목록 로드 완료:', formattedData);
+    } catch (error) {
+      console.error('❌ 출고 대기 목록 로드 실패:', error);
+      const errorMessage = error.response?.data?.message || error.message || '출고 대기 목록을 불러오는데 실패했습니다.';
+      showAlert(errorMessage, 'error');
+      setShippingWaitingData([]);
+    } finally {
+      setIsLoadingShipping(false);
+    }
+  };
+
+  const loadShippingCompletedList = async () => {
+    try {
+      console.log('📦 출고 완료 목록 로드 시작...');
+      // planned-transactions API에서 출고 완료 트랜잭션 조회 (ISSUE, COMPLETED 상태)
+      const response = await plannedTransactionsAPI.getPlannedTransactions({
+        transactionType: 'ISSUE',
+        status: 'COMPLETED', // 완료 상태
+        });
+        const data = response.data?.data || response.data || [];
+      const transactionsList = Array.isArray(data) ? data : [];
+      
+      // API 데이터를 컴포넌트 형식에 맞게 변환
+      const formattedData = transactionsList.map((item) => {
+        const { itemCode, itemName } = extractItemInfo(item);
+        
+        // 최종적으로 문자열이 아닌 경우 처리 (null, undefined, 객체 등)
+        const safeItemCode = itemCode && typeof itemCode === 'string' ? itemCode : String(itemCode || '-');
+        const safeItemName = itemName && typeof itemName === 'string' ? itemName : String(itemName || '-');
+        
+        return {
+          id: item.id,
+          itemCode: safeItemCode,
+          itemName: safeItemName,
+          expectedQuantity: item.quantity ? `${item.quantity} ${item.unit || 'kg'}` : '0',
+          shippedQuantity: item.shipped_quantity || item.shippedQuantity || item.issued_quantity || item.issuedQuantity || item.quantity || '0',
+          unitCount: item.unit_count || item.unitCount || '1',
+          completedDate: item.completed_date || item.completedDate || item.updated_at || item.created_at || '',
+          transactionId: item.id,
+        };
+      });
+      
+      setShippingCompletedData(formattedData);
+      console.log('✅ 출고 완료 목록 로드 완료:', formattedData);
+    } catch (error) {
+      console.error('❌ 출고 완료 목록 로드 실패:', error);
+      const errorMessage = error.response?.data?.message || error.message || '출고 완료 목록을 불러오는데 실패했습니다.';
+      showAlert(errorMessage, 'error');
+      setShippingCompletedData([]);
+    }
+  };
 
   const handleAddReceiving = () => {
     setIsModalOpen(true);
@@ -130,6 +394,7 @@ const Receiving = ({ subPage = 'nav1' }) => {
     setIsModalOpen(false);
   };
 
+<<<<<<< HEAD
   // 대기 목록 추가
   const handleSubmitReceiving = async (formData) => {
     try {
@@ -147,8 +412,100 @@ const Receiving = ({ subPage = 'nav1' }) => {
         error.response?.data?.message || '입고 목록 추가에 실패했습니다.',
         'error'
       );
+=======
+  // 대기 목록 추가 (입고)
+  const handleSubmitReceiving = async (formData) => {
+    try {
+      // itemId 또는 itemCode 중 하나 필수
+      const itemIdStr = formData?.selectedItemId != null ? String(formData.selectedItemId).trim() : '';
+      const itemId = itemIdStr !== '' ? Number(itemIdStr) : undefined;
+  
+      const codeStr = formData?.itemCode != null ? String(formData.itemCode).trim() : '';
+      const itemCode = !itemId && codeStr !== '' ? codeStr : undefined;
+  
+      if (!itemId && !itemCode) {
+        showAlert('품목을 선택하거나 코드를 입력해주세요.', 'error');
+        return;
+      }
+  
+      // factoryId
+      const factoryIdNum = Number(formData?.factoryId);
+      if (!Number.isFinite(factoryIdNum)) {
+        showAlert('공장을 선택해주세요.', 'error');
+        return;
+      }
+  
+      // quantity (콤마 허용)
+      const qtyNum = Number(String(formData?.expectedQuantity ?? '').replace(/,/g, '').trim());
+      if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
+        showAlert('주문량을 올바르게 입력해주세요.', 'error');
+        return;
+      }
+  
+      // date (YYYY-MM-DD 유지)
+      const dateStr = formData?.expectedDate != null ? String(formData.expectedDate).trim() : '';
+      if (dateStr === '') {
+        showAlert('입고예정일을 선택해주세요.', 'error');
+        return;
+      }
+      const scheduledDate = dateStr;
+  
+      // 옵션 필드 정리 (빈 문자열이면 undefined로 제거)
+      const unitRaw = formData?.unit != null ? String(formData.unit).trim() : '';
+      const unit = unitRaw !== '' ? unitRaw : undefined; // 품목 단위가 우선이므로 선택
+  
+      const supplierNameRaw = formData?.supplierName != null ? String(formData.supplierName).trim() : '';
+      const supplierName = supplierNameRaw !== '' ? supplierNameRaw : undefined;
+  
+      const barcodeRaw = formData?.barcode != null ? String(formData.barcode).trim() : '';
+      const barcode = barcodeRaw !== '' ? barcodeRaw : undefined;
+  
+      const notesRaw = formData?.notes != null ? String(formData.notes).trim() : '';
+      const notes = notesRaw !== '' ? notesRaw : undefined;
+  
+      const storageConditionId =
+        formData?.storageConditionId != null && String(formData.storageConditionId).trim() !== ''
+          ? Number(formData.storageConditionId)
+          : undefined;
+  
+      const wholesalePrice =
+        formData?.wholesalePrice != null && String(formData.wholesalePrice).trim() !== ''
+          ? Number(String(formData.wholesalePrice).replace(/,/g, '').trim())
+          : undefined;
+  
+      const payload = {
+        transactionType: 'RECEIVE',
+        itemId,              // 있으면 사용
+        itemCode,            // id 없으면 코드 사용(백엔드가 처리)
+        factoryId: factoryIdNum,
+        quantity: qtyNum,
+        unit,                // 선택
+        scheduledDate,
+        supplierName,
+        barcode,
+        wholesalePrice,
+        storageConditionId,
+        notes,
+      };
+  
+      const response = await plannedTransactionsAPI.createPlannedTransaction(payload);
+  
+      console.log('✅ 입고 추가 완료:', response.data);
+      showAlert('입고 대기 목록에 추가되었습니다.', 'success');
+      setIsModalOpen(false);
+      await loadReceivingWaitingList();
+    } catch (error) {
+      console.error('❌ 입고 목록 추가 실패:', error);
+      const msg =
+        error?.response?.data?.message ??
+        error?.response?.data?.detail ??
+        error?.message ??
+        '입고 목록 추가에 실패했습니다.';
+      showAlert(msg, 'error');
+>>>>>>> origin/label-print
     }
   };
+  
 
   // 입고 버튼 클릭 시 확인 모달 열기
   const handleReceive = (item) => {
@@ -163,27 +520,68 @@ const Receiving = ({ subPage = 'nav1' }) => {
   };
 
   // 입고 처리 확정 (대기 목록 -> 완료 목록)
-  const handleConfirmReceive = () => {
+  const handleConfirmReceive = async () => {
     if (!selectedItem) return;
 
-    // 대기 목록에서 제거
-    setWaitingData(waitingData.filter((data) => data.id !== selectedItem.id));
+    try {
+      console.log('📦 입고 확정 시작...', selectedItem);
+      const transactionId = selectedItem.transactionId || selectedItem.id;
+      if (!transactionId) {
+        showAlert('트랜잭션 ID가 없습니다.', 'error');
+        return;
+      }
 
-    // 완료 목록에 추가
-    const completedItem = {
-      id: Date.now(),
-      itemCode: selectedItem.itemCode,
-      itemName: selectedItem.itemName,
-      expectedQuantity: selectedItem.expectedQuantity,
-      receivedQuantity: `${selectedItem.receivedQuantity}Kg`,
-      unitCount: selectedItem.unitCount,
-      receivedDate: new Date().toISOString().split('T')[0],
-      status: '정상',
-    };
+      // actualQuantity 필수
+      const actualQuantity = selectedItem.receivedQuantity 
+        ? parseFloat(String(selectedItem.receivedQuantity).replace(/,/g, '').trim())
+        : null;
+      
+      if (!actualQuantity || !Number.isFinite(actualQuantity) || actualQuantity <= 0) {
+        showAlert('입고량을 올바르게 입력해주세요.', 'error');
+        return;
+      }
 
-    setCompletedData([completedItem, ...completedData]);
+      // 입고 처리: printLabel: true (항상 라벨 프린트)
+      // 바코드는 백엔드에서 자동 생성됨
+      const payload = {
+        actualQuantity,
+        printLabel: true, // 입고 시 항상 라벨 프린트
+      };
+
+      // 선택 필드: unitCount가 있으면 추가
+      if (selectedItem.unitCount) {
+        const unitCount = parseInt(String(selectedItem.unitCount).trim(), 10);
+        if (Number.isFinite(unitCount) && unitCount > 0) {
+          payload.unitCount = unitCount;
+        }
+      }
+
+      const response = await plannedTransactionsAPI.completeReceive(transactionId, payload);
+      
+      console.log('✅ 입고 확정 완료:', response.data);
+      
+      // 응답에서 barcode, labelPrint 정보 확인
+      if (response.data?.data?.barcode) {
+        console.log('📦 생성된 바코드:', response.data.data.barcode);
+      }
+      if (response.data?.data?.labelPrint) {
+        console.log('🏷️ 라벨 프린트 정보:', response.data.data.labelPrint);
+      }
+      if (response.data?.data?.completedPartial) {
+        console.log('📋 부분 입고 내역:', response.data.data.completedPartial);
+      }
+      
     showAlert('입고가 완료되었습니다.', 'success');
     handleCloseConfirmModal();
+      
+      // 목록 새로고침
+      await loadReceivingWaitingList();
+      await loadReceivingCompletedList();
+    } catch (error) {
+      console.error('❌ 입고 확정 실패:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.detail || error.message || '입고 확정에 실패했습니다.';
+      showAlert(errorMessage, 'error');
+    }
   };
 
   // 입고 대기 목록에서 삭제
@@ -195,27 +593,36 @@ const Receiving = ({ subPage = 'nav1' }) => {
   };
 
   // 입고 취소 (완료 목록 -> 대기 목록)
-  const handleCancelReceiving = (id) => {
+  const handleCancelReceiving = async (id) => {
     const item = completedData.find((data) => data.id === id);
     if (!item) return;
 
     if (!confirm('입고를 취소하시겠습니까? 대기 목록으로 돌아갑니다.')) return;
 
-    // 완료 목록에서 제거
-    setCompletedData(completedData.filter((data) => data.id !== id));
+    try {
+      console.log('📦 입고 취소 시작...', id);
+      const transactionId = item.transactionId || item.id;
+      if (!transactionId) {
+        showAlert('트랜잭션 ID가 없습니다.', 'error');
+        return;
+      }
 
-    // 대기 목록에 다시 추가
-    const waitingItem = {
-      id: Date.now(),
-      itemCode: item.itemCode,
-      itemName: item.itemName,
-      expectedQuantity: item.expectedQuantity,
-      expectedDate: new Date().toISOString().split('T')[0],
-      supplier: '공급업체',
-    };
-
-    setWaitingData([...waitingData, waitingItem]);
+      // planned-transactions API의 reject 사용 (또는 상태 변경)
+      await plannedTransactionsAPI.reject(transactionId, {
+        reason: '입고 취소',
+      });
+      
+      console.log('✅ 입고 취소 완료');
     showAlert('입고가 취소되었습니다.', 'info');
+      
+      // 목록 새로고침
+      await loadReceivingWaitingList();
+      await loadReceivingCompletedList();
+    } catch (error) {
+      console.error('❌ 입고 취소 실패:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.detail || error.message || '입고 취소에 실패했습니다.';
+      showAlert(errorMessage, 'error');
+    }
   };
 
   // 라벨 프린트 모달 열기
@@ -230,29 +637,125 @@ const Receiving = ({ subPage = 'nav1' }) => {
     setSelectedItem(null);
   };
 
+  // 라벨 템플릿 생성 모달 상태
+  const [isTemplateCreationModalOpen, setIsTemplateCreationModalOpen] = useState(false);
+  const [templateCreationData, setTemplateCreationData] = useState(null);
+
+  // 라벨 템플릿 생성 필요 시 호출
+  const handleTemplateCreationRequired = (data) => {
+    setTemplateCreationData(data);
+    setIsTemplateCreationModalOpen(true);
+    // 라벨 프린트 모달 닫기
+    handleCloseLabelPrintModal();
+  };
+
+  // 라벨 템플릿 생성 모달 닫기
+  const handleCloseTemplateCreationModal = () => {
+    setIsTemplateCreationModalOpen(false);
+    setTemplateCreationData(null);
+  };
+
   // 라벨 프린트 완료 후 입고 완료 처리
+<<<<<<< HEAD
   const handleLabelPrintComplete = async () => {
+=======
+  const handleLabelPrintComplete = async (labelData) => {
+>>>>>>> origin/label-print
     if (subPage === 'nav1') {
-      // 입고 처리
+      // 입고 처리 (API 사용)
       if (selectedItem?.receivedQuantity && selectedItem?.unitCount) {
-        setWaitingData(waitingData.filter((data) => data.id !== selectedItem.id));
-        const completedItem = {
-          id: Date.now(),
-          itemCode: selectedItem.itemCode,
-          itemName: selectedItem.itemName,
-          expectedQuantity: selectedItem.expectedQuantity,
-          receivedQuantity: `${selectedItem.receivedQuantity}`,
-          unitCount: selectedItem.unitCount,
-          receivedDate: new Date().toISOString().split('T')[0],
-          status: '정상',
-        };
-        setCompletedData([completedItem, ...completedData]);
+        try {
+          console.log('📦 라벨 프린트 후 입고 확정 시작...', selectedItem);
+          const transactionId = selectedItem.transactionId || selectedItem.id;
+          if (!transactionId) {
+            showAlert('트랜잭션 ID가 없습니다.', 'error');
+            return;
+          }
+
+          // actualQuantity 필수
+          const actualQuantity = selectedItem.receivedQuantity 
+            ? parseFloat(String(selectedItem.receivedQuantity).replace(/,/g, '').trim())
+            : null;
+          
+          if (!actualQuantity || !Number.isFinite(actualQuantity) || actualQuantity <= 0) {
+            showAlert('입고량을 올바르게 입력해주세요.', 'error');
+            return;
+          }
+
+          // 입고 처리: printLabel: true (항상 라벨 프린트)
+          // 바코드는 백엔드에서 자동 생성됨
+          const payload = {
+            actualQuantity,
+            printLabel: true, // 입고 시 항상 라벨 프린트
+          };
+
+          // 선택 필드: unitCount가 있으면 추가
+          if (selectedItem.unitCount) {
+            const unitCount = parseInt(String(selectedItem.unitCount).trim(), 10);
+            if (Number.isFinite(unitCount) && unitCount > 0) {
+              payload.unitCount = unitCount;
+            }
+          }
+
+          // 라벨 프린트 정보가 있으면 추가 (labelData에서 가져오기)
+          if (labelData?.labelSize) {
+            // labelSize를 templateType으로 변환 (예: '100X100' -> 'large')
+            const labelSizeMap = {
+              '100X100': 'large',
+              '80X60': 'medium',
+              '50X30': 'small',
+              '28X16': 'verysmall',
+            };
+            payload.labelSize = labelSizeMap[labelData.labelSize] || labelData.labelSize;
+          }
+          
+          // labelQuantity는 quantity에서 가져오기
+          if (labelData?.quantity) {
+            const labelQuantity = parseInt(String(labelData.quantity).trim(), 10);
+            if (Number.isFinite(labelQuantity) && labelQuantity > 0) {
+              payload.labelQuantity = labelQuantity;
+            }
+          }
+          
+          // printerName은 labelData.printerName에서 가져오기
+          if (labelData?.printerName) {
+            payload.printerName = labelData.printerName;
+          } else if (labelData?.selectedPrinter) {
+            // selectedPrinter로 fallback
+            payload.printerName = labelData.selectedPrinter;
+          }
+
+          const response = await plannedTransactionsAPI.completeReceive(transactionId, payload);
+          
+          console.log('✅ 라벨 프린트 후 입고 확정 완료:', response.data);
+          
+          // 응답에서 barcode, labelPrint 정보 확인
+          if (response.data?.data?.barcode) {
+            console.log('📦 생성된 바코드:', response.data.data.barcode);
+          }
+          if (response.data?.data?.labelPrint) {
+            console.log('🏷️ 라벨 프린트 정보:', response.data.data.labelPrint);
+          }
+          if (response.data?.data?.completedPartial) {
+            console.log('📋 부분 입고 내역:', response.data.data.completedPartial);
+          }
+          
         showAlert('라벨 프린트 및 입고가 완료되었습니다.', 'success');
         handleCloseConfirmModal();
+          
+          // 목록 새로고침
+          await loadReceivingWaitingList();
+          await loadReceivingCompletedList();
+        } catch (error) {
+          console.error('❌ 입고 확인 실패:', error);
+          const errorMessage = error.response?.data?.message || error.response?.data?.detail || error.message || '입고 확인에 실패했습니다.';
+          showAlert(errorMessage, 'error');
+        }
       } else {
         showAlert('라벨을 프린트했습니다.', 'success');
       }
     } else {
+<<<<<<< HEAD
       // 출고 처리 - Redux 액션 사용
       if (selectedItem?.shippedQuantity && selectedItem?.unitCount) {
         try {
@@ -269,6 +772,129 @@ const Receiving = ({ subPage = 'nav1' }) => {
             error.response?.data?.message || '출고 확인에 실패했습니다.',
             'error'
           );
+=======
+      // 출고 처리 (API 사용)
+      if (selectedItem?.shippedQuantity) {
+        try {
+          console.log('📦 라벨 프린트 후 출고 확정 시작...', selectedItem);
+          const transactionId = selectedItem.transactionId || selectedItem.id;
+          if (!transactionId) {
+            showAlert('트랜잭션 ID가 없습니다.', 'error');
+            return;
+          }
+
+          // actualQuantity 필수
+          const actualQuantity = selectedItem.shippedQuantity 
+            ? parseFloat(String(selectedItem.shippedQuantity).replace(/,/g, '').trim())
+            : null;
+          
+          if (!actualQuantity || !Number.isFinite(actualQuantity) || actualQuantity <= 0) {
+            showAlert('출고량을 올바르게 입력해주세요.', 'error');
+            return;
+          }
+
+          // transferType 필수 (기본값: CUSTOMER)
+          const transferType = selectedItem.transferType || selectedItem.transactionType || 'CUSTOMER';
+          const validTransferTypes = ['CUSTOMER', 'FACTORY_TRANSFER', 'WAREHOUSE_TRANSFER', 'B2B'];
+          if (!validTransferTypes.includes(transferType)) {
+            showAlert('올바른 이동 유형을 선택해주세요.', 'error');
+            return;
+          }
+
+          // itemCategory 추출 (라벨 프린트 규칙 결정에 사용)
+          const itemCategory = selectedItem.itemCategory || 
+                               selectedItem.item?.category || 
+                               selectedItem.item?.categoryLabel ||
+                               selectedItem.category ||
+                               selectedItem.categoryLabel ||
+                               '';
+
+          // 라벨 프린트 규칙 결정
+          // - 공장간/창고간 이동: 라벨 프린트 없음 (바코드 그대로 유지)
+          // - 완제품(Finished): 라벨 프린트 (현재 방식 사용)
+          // - 고객/B2B 배송: 라벨 프린트 (현재 방식 사용)
+          const shouldPrintLabel = (transferType === 'FACTORY_TRANSFER' || transferType === 'WAREHOUSE_TRANSFER')
+            ? false // 공장간/창고간 이동: 라벨 프린트 없음
+            : (transferType === 'CUSTOMER' || transferType === 'B2B' || itemCategory === 'Finished' || itemCategory === '완제품')
+            ? true // 고객/B2B 배송 또는 완제품: 라벨 프린트
+            : false; // 기본값: 라벨 프린트 없음
+
+          // planned-transactions API의 completeIssue 사용
+          const payload = {
+            actualQuantity,
+            transferType,
+          };
+
+          // 선택 필드: unitCount가 있으면 추가
+          if (selectedItem.unitCount) {
+            const unitCount = parseInt(String(selectedItem.unitCount).trim(), 10);
+            if (Number.isFinite(unitCount) && unitCount > 0) {
+              payload.unitCount = unitCount;
+            }
+          }
+
+          // 라벨 프린트가 필요한 경우에만 라벨 정보 추가
+          if (shouldPrintLabel && labelData) {
+            payload.printLabel = true;
+            
+            // labelSize는 labelData.labelSize에서 가져오거나, templateType으로 변환
+            if (labelData.labelSize) {
+              // labelSize를 templateType으로 변환 (예: '100X100' -> 'large')
+              const labelSizeMap = {
+                '100X100': 'large',
+                '80X60': 'medium',
+                '50X30': 'small',
+                '28X16': 'verysmall',
+              };
+              payload.labelSize = labelSizeMap[labelData.labelSize] || labelData.labelSize;
+            }
+            
+            // labelQuantity는 quantity에서 가져오기
+            if (labelData.quantity) {
+              const labelQuantity = parseInt(String(labelData.quantity).trim(), 10);
+              if (Number.isFinite(labelQuantity) && labelQuantity > 0) {
+                payload.labelQuantity = labelQuantity;
+              }
+            }
+            
+            // printerName은 labelData.printerName에서 가져오기
+            if (labelData.printerName) {
+              payload.printerName = labelData.printerName;
+            } else if (labelData.selectedPrinter) {
+              // selectedPrinter로 fallback
+              payload.printerName = labelData.selectedPrinter;
+            }
+          } else {
+            // 공장간/창고간 이동: 라벨 프린트 없음
+            payload.printLabel = false;
+          }
+
+          const response = await plannedTransactionsAPI.completeIssue(transactionId, payload);
+          
+          console.log('✅ 라벨 프린트 후 출고 확정 완료:', response.data);
+          
+          // 응답에서 barcode, labelPrint 정보 확인
+          if (response.data?.data?.barcode) {
+            console.log('📦 바코드 정보:', response.data.data.barcode);
+          }
+          if (response.data?.data?.labelPrint) {
+            console.log('🏷️ 라벨 프린트 정보:', response.data.data.labelPrint);
+          }
+          if (response.data?.data?.completedPartial) {
+            console.log('📋 부분 출고 내역:', response.data.data.completedPartial);
+          }
+          
+          showAlert('라벨 프린트 및 출고가 완료되었습니다.', 'success');
+          handleCloseConfirmModal();
+          
+          // 목록 새로고침
+          await loadShippingWaitingList();
+          await loadShippingCompletedList();
+        } catch (error) {
+          console.error('❌ 출고 확인 실패:', error);
+          const errorMessage = error.response?.data?.message || error.response?.data?.detail || error.message || '출고 확인에 실패했습니다.';
+          showAlert(errorMessage, 'error');
+>>>>>>> origin/label-print
         }
       } else {
         showAlert('라벨을 프린트했습니다.', 'success');
@@ -284,6 +910,7 @@ const Receiving = ({ subPage = 'nav1' }) => {
 
   const handleSubmitShipping = async (formData) => {
     try {
+<<<<<<< HEAD
       const itemInfo = getItemByName(formData.itemName);
 
       // Redux 액션으로 출고 대기 목록에 추가
@@ -312,6 +939,54 @@ const Receiving = ({ subPage = 'nav1' }) => {
         error.response?.data?.message || '출고 목록 추가에 실패했습니다.',
         'error'
       );
+=======
+      console.log('📦 출고 추가 시작...', formData);
+      
+      // planned-transactions API를 사용하여 출고 예정 트랜잭션 생성
+      const transactionData = {
+        transactionType: 'ISSUE', // 출고
+        itemId: parseInt(formData.selectedItemId) || parseInt(formData.itemCode) || null,
+        factoryId: parseInt(formData.factoryId) || null,
+        quantity: parseFloat(formData.expectedQuantity) || 0,
+        unit: formData.unit || 'kg',
+        scheduledDate: formData.expectedDate,
+        customerName: formData.customerName || '',
+        issueType: formData.issueType || '',
+        shippingAddress: formData.shippingAddress || '',
+        notes: formData.notes || '',
+      };
+      
+      // 필수 필드 검증
+      if (!transactionData.itemId) {
+        showAlert('품목을 선택해주세요.', 'error');
+        return;
+      }
+      if (!transactionData.factoryId) {
+        showAlert('공장을 선택해주세요.', 'error');
+        return;
+      }
+      if (!transactionData.quantity || transactionData.quantity <= 0) {
+        showAlert('주문량을 입력해주세요.', 'error');
+        return;
+      }
+      if (!transactionData.scheduledDate) {
+        showAlert('출고예정일을 선택해주세요.', 'error');
+        return;
+      }
+      
+      const response = await plannedTransactionsAPI.createPlannedTransaction(transactionData);
+      
+      console.log('✅ 출고 추가 완료:', response.data);
+      showAlert('출고 대기 목록에 추가되었습니다.', 'success');
+      setIsModalOpen(false);
+      
+      // 목록 새로고침
+      await loadShippingWaitingList();
+    } catch (error) {
+      console.error('❌ 출고 목록 추가 실패:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.detail || error.message || '출고 목록 추가에 실패했습니다.';
+      showAlert(errorMessage, 'error');
+>>>>>>> origin/label-print
     }
   };
 
@@ -320,6 +995,7 @@ const Receiving = ({ subPage = 'nav1' }) => {
     setIsConfirmModalOpen(true);
   };
 
+<<<<<<< HEAD
   const handleConfirmShip = async () => {
     if (!selectedItem) return;
 
@@ -362,10 +1038,110 @@ const Receiving = ({ subPage = 'nav1' }) => {
 
   const handleCancelShipping = async (id) => {
     const item = completedIssuings.find((data) => data.id === id);
+=======
+  const handleConfirmShip = async (itemWithTransferType) => {
+    // itemWithTransferType이 전달되면 사용, 없으면 selectedItem 사용
+    const item = itemWithTransferType || selectedItem;
+    if (!item) return;
+
+    try {
+      console.log('📦 출고 확정 시작...', item);
+      const transactionId = item.transactionId || item.id;
+      if (!transactionId) {
+        showAlert('트랜잭션 ID가 없습니다.', 'error');
+        return;
+      }
+
+      // actualQuantity 필수
+      const actualQuantity = item.shippedQuantity 
+        ? parseFloat(String(item.shippedQuantity).replace(/,/g, '').trim())
+        : null;
+      
+      if (!actualQuantity || !Number.isFinite(actualQuantity) || actualQuantity <= 0) {
+        showAlert('출고량을 올바르게 입력해주세요.', 'error');
+        return;
+      }
+
+      // transferType 필수 (기본값: CUSTOMER)
+      const transferType = item.transferType || item.transactionType || 'CUSTOMER';
+      const validTransferTypes = ['CUSTOMER', 'FACTORY_TRANSFER', 'WAREHOUSE_TRANSFER', 'B2B'];
+      if (!validTransferTypes.includes(transferType)) {
+        showAlert('올바른 이동 유형을 선택해주세요.', 'error');
+        return;
+      }
+
+      // itemCategory 추출 (라벨 프린트 규칙 결정에 사용)
+      const itemCategory = item.itemCategory || 
+                           item.item?.category || 
+                           item.item?.categoryLabel ||
+                           item.category ||
+                           item.categoryLabel ||
+                           '';
+
+      // 라벨 프린트 규칙 결정
+      // - 공장간/창고간 이동: 라벨 프린트 없음 (바코드 그대로 유지)
+      // - 완제품(Finished): 라벨 프린트 (현재 방식 사용)
+      // - 고객/B2B 배송: 라벨 프린트 (현재 방식 사용)
+      const shouldPrintLabel = (transferType === 'FACTORY_TRANSFER' || transferType === 'WAREHOUSE_TRANSFER')
+        ? false // 공장간/창고간 이동: 라벨 프린트 없음
+        : (transferType === 'CUSTOMER' || transferType === 'B2B' || itemCategory === 'Finished' || itemCategory === '완제품')
+        ? true // 고객/B2B 배송 또는 완제품: 라벨 프린트
+        : false; // 기본값: 라벨 프린트 없음
+
+      // planned-transactions API의 completeIssue 사용
+      const payload = {
+        actualQuantity,
+        transferType,
+        printLabel: shouldPrintLabel, // 라벨 프린트 여부
+      };
+
+      // 선택 필드: unitCount가 있으면 추가
+      if (item.unitCount) {
+        const unitCount = parseInt(String(item.unitCount).trim(), 10);
+        if (Number.isFinite(unitCount) && unitCount > 0) {
+          payload.unitCount = unitCount;
+        }
+      }
+
+      // 라벨 프린트가 필요한 경우에만 라벨 정보 추가 (현재는 백엔드에서 처리하므로 생략)
+      // 필요시 labelSize, labelQuantity, printerName 추가 가능
+
+      const response = await plannedTransactionsAPI.completeIssue(transactionId, payload);
+      
+      console.log('✅ 출고 확정 완료:', response.data);
+      
+      // 응답에서 barcode, labelPrint 정보 확인
+      if (response.data?.data?.barcode) {
+        console.log('📦 바코드 정보:', response.data.data.barcode);
+      }
+      if (response.data?.data?.labelPrint) {
+        console.log('🏷️ 라벨 프린트 정보:', response.data.data.labelPrint);
+      }
+      if (response.data?.data?.completedPartial) {
+        console.log('📋 부분 출고 내역:', response.data.data.completedPartial);
+      }
+      
+      showAlert('출고가 완료되었습니다.', 'success');
+      handleCloseConfirmModal();
+      
+      // 목록 새로고침
+      await loadShippingWaitingList();
+      await loadShippingCompletedList();
+    } catch (error) {
+      console.error('❌ 출고 확인 실패:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.detail || error.message || '출고 확인에 실패했습니다.';
+      showAlert(errorMessage, 'error');
+    }
+  };
+
+  const handleCancelShipping = async (id) => {
+    const item = shippingCompletedData.find((data) => data.id === id);
+>>>>>>> origin/label-print
     if (!item) return;
     if (!confirm('출고를 취소하시겠습니까? 대기 목록으로 돌아갑니다.')) return;
 
     try {
+<<<<<<< HEAD
       // Redux 액션으로 출고 삭제 (취소)
       dispatch(deleteIssuing.request(id));
 
@@ -378,6 +1154,30 @@ const Receiving = ({ subPage = 'nav1' }) => {
         error.response?.data?.message || '출고 취소에 실패했습니다.',
         'error'
       );
+=======
+      console.log('📦 출고 취소 시작...', id);
+      const transactionId = item.transactionId || item.id;
+      if (!transactionId) {
+        showAlert('트랜잭션 ID가 없습니다.', 'error');
+        return;
+      }
+
+      // planned-transactions API의 reject 사용 (또는 상태 변경)
+      await plannedTransactionsAPI.reject(transactionId, {
+        reason: '출고 취소',
+      });
+      
+      console.log('✅ 출고 취소 완료');
+      showAlert('출고가 취소되었습니다.', 'info');
+      
+      // 목록 새로고침
+      await loadShippingWaitingList();
+      await loadShippingCompletedList();
+    } catch (error) {
+      console.error('❌ 출고 취소 실패:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.detail || error.message || '출고 취소에 실패했습니다.';
+      showAlert(errorMessage, 'error');
+>>>>>>> origin/label-print
     }
   };
 
@@ -468,7 +1268,12 @@ const Receiving = ({ subPage = 'nav1' }) => {
             isOpen={isConfirmModalOpen}
             onClose={handleCloseConfirmModal}
             onConfirm={handleConfirmShip}
-            onLabelPrint={() => handleLabelPrint(selectedItem)}
+            onLabelPrint={(item) => {
+              // transferType 포함하여 전달
+              setSelectedItem(item);
+              handleCloseConfirmModal();
+              handleLabelPrint(item);
+            }}
             itemData={selectedItem}
           />
         </>
@@ -480,6 +1285,14 @@ const Receiving = ({ subPage = 'nav1' }) => {
         onClose={handleCloseLabelPrintModal}
         onPrintComplete={handleLabelPrintComplete}
         itemData={selectedItem}
+        onTemplateCreationRequired={handleTemplateCreationRequired}
+      />
+
+      {/* 라벨 템플릿 생성 모달 */}
+      <LabelTemplateCreationModal
+        isOpen={isTemplateCreationModalOpen}
+        onClose={handleCloseTemplateCreationModal}
+        itemData={templateCreationData}
       />
 
       {/* Alert 모달 */}

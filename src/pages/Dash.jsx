@@ -1,12 +1,38 @@
 import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import ManufacturingManagement from '../components/dashboard/ManufacturingManagement';
 import MainModule from '../components/dashboard/MainModule';
+<<<<<<< HEAD
 import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 
 const Dash = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+=======
+import { dashboardAPI } from '../api';
+
+const Dash = () => {
+  const navigate = useNavigate();
+  const [dashboardData, setDashboardData] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        setLoading(true);
+        const response = await dashboardAPI.getDashboard();
+        setDashboardData(response.data.data);
+        console.log('response : ', response.data.data);
+      } catch (error) {
+        console.error('대시보드 데이터 로드 실패:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadDashboard();
+  }, []);
+>>>>>>> origin/label-print
 
   const handleNavigate = (nav) => {
     const navMap = {
@@ -44,7 +70,7 @@ const Dash = () => {
 
       {/* 제조 관리 통계 */}
       <div className='mb-8'>
-        <ManufacturingManagement />
+        <ManufacturingManagement dashboardData={dashboardData} loading={loading} />
       </div>
 
       {/* 나머지 대시보드 컴포넌트들 */}

@@ -16,7 +16,16 @@ import { getMe, changePassword, changePosition, logout } from "../store/modules/
 
 const Mypage = () => {
   const navigate = useNavigate();
+<<<<<<< HEAD
   const dispatch = useDispatch();
+=======
+  // 환경 변수에서 API URL 가져오기 (기본값 없음 - .env 필수)
+  const API_BASE_URL = import.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL;
+  const api = axios.create({
+    baseURL: API_BASE_URL,
+    withCredentials: true,
+  });
+>>>>>>> origin/label-print
 
   // Redux state
   const { user, loading, error } = useSelector((state) => state.auth);
@@ -32,6 +41,7 @@ const Mypage = () => {
 
   // 컴포넌트 마운트 시 사용자 정보 조회
   useEffect(() => {
+<<<<<<< HEAD
     dispatch(getMe.request());
   }, [dispatch]);
 
@@ -48,6 +58,36 @@ const Mypage = () => {
       if (error.includes("401") || error.includes("인증")) {
         alert("세션이 만료되었습니다. 다시 로그인해주세요.");
         navigate("/login");
+=======
+    const fetchUser = async () => {
+      try {
+        const res = await api.get("/auth/me");
+        console.log(res);
+        const user = res.data?.user ?? res.data;
+        if (!user) throw new Error("유저 정보를 불러올 수 없습니다.");
+        setUserData({
+          userId: user.id ?? "",
+          name: user.profile?.full_name ?? "",
+          phone: user.profile?.phone_number ?? "",
+          email: user.profile?.email ?? "",
+          joinDate: user.profile?.hire_date ?? "",
+          position: user.profile?.position ?? "",
+        });
+        setNewPosition(user.profile?.position ?? "");
+      } catch (err) {
+        if (
+          err.response?.status === 401 ||
+          (typeof err.response?.data === "string" &&
+            err.response.data.includes("<!DOCTYPE html"))
+        ) {
+          alert("세션이 만료되었습니다. 다시 로그인해주세요.");
+          navigate("/login");
+        } else {
+          alert("유저 정보를 불러오는 중 오류가 발생했습니다.");
+        }
+      } finally {
+        setLoading(false);
+>>>>>>> origin/label-print
       }
     }
   }, [error, navigate]);
@@ -65,6 +105,7 @@ const Mypage = () => {
     if (!currentPassword || !newPassword || !confirmPassword) return alert("모든 필드를 입력해주세요.");
     if (newPassword !== confirmPassword) return alert("새 비밀번호가 일치하지 않습니다.");
     if (newPassword.length < 4) return alert("비밀번호는 최소 4자 이상이어야 합니다.");
+<<<<<<< HEAD
 
     // Redux Saga를 통한 비밀번호 변경
     dispatch(changePassword.request({
@@ -80,6 +121,32 @@ const Mypage = () => {
     });
     setIsEditingPassword(false);
     alert("비밀번호가 변경되었습니다.");
+=======
+    try {
+      const res = await api.post("/auth/password", {
+        currentPassword,
+        newPassword,
+      });
+      if (res.data.ok) {
+        alert("비밀번호가 변경되었습니다.");
+        setPasswordData({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+        setIsEditingPassword(false);
+      } else {
+        alert(res.data.message ?? "비밀번호 변경 실패");
+      }
+    } catch (err) {
+      if (err.response?.status === 401) {
+        alert("세션이 만료되었습니다. 다시 로그인해주세요.");
+        navigate("/login");
+      } else {
+        alert("비밀번호 변경 중 오류가 발생했습니다.");
+      }
+    }
+>>>>>>> origin/label-print
   };
 
   const handlePasswordCancel = () => {
@@ -97,6 +164,7 @@ const Mypage = () => {
       setIsEditingPosition(false);
       return;
     }
+<<<<<<< HEAD
 
     // Redux Saga를 통한 직급 변경
     // API 명세: { userId, position }
@@ -107,6 +175,25 @@ const Mypage = () => {
 
     setIsEditingPosition(false);
     alert("직급이 변경되었습니다.");
+=======
+    try {
+      const res = await api.post("/auth/position", { position: newPosition });
+      if (res.data.ok) {
+        setUserData((prev) => ({ ...prev, position: newPosition }));
+        alert("직급이 변경되었습니다.");
+        setIsEditingPosition(false);
+      } else {
+        alert(res.data.message ?? "직급 변경 실패");
+      }
+    } catch (err) {
+      if (err.response?.status === 401) {
+        alert("세션이 만료되었습니다. 다시 로그인해주세요.");
+        navigate("/login");
+      } else {
+        alert("직급 변경 중 오류가 발생했습니다.");
+      }
+    }
+>>>>>>> origin/label-print
   };
 
   const handlePositionCancel = () => {
@@ -116,9 +203,15 @@ const Mypage = () => {
 
   const handleLogout = () => {
     if (!window.confirm("로그아웃 하시겠습니까?")) return;
+<<<<<<< HEAD
 
     // Redux Saga를 통한 로그아웃
     dispatch(logout.request());
+=======
+    try {
+      await api.post("/auth/logout");
+    } catch {}
+>>>>>>> origin/label-print
     navigate("/login");
   };
 

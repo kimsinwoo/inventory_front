@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { LogIn, User, Lock } from 'lucide-react';
+<<<<<<< HEAD
 import { login } from '../store/modules/auth/actions';
+=======
+import { authAPI } from '../api';
+>>>>>>> origin/label-print
 
 const Login = () => {
   const navigate = useNavigate();
@@ -48,6 +52,7 @@ const Login = () => {
       return;
     }
 
+<<<<<<< HEAD
     // Redux Saga를 통한 로그인 처리
     // API는 email을 받지만, 프론트에서는 userId로 표시
     dispatch(login.request({
@@ -55,6 +60,39 @@ const Login = () => {
       password: formData.password,
       remember: formData.remember
     }));
+=======
+    try {
+      const response = await authAPI.login({
+        username: formData.userId,
+        password: formData.password,
+      });
+
+      if (response.data?.ok || response.data?.user) {
+        const userData = response.data?.user || {
+          username: formData.userId,
+          name: formData.userId,
+        };
+
+        localStorage.setItem(
+          'user',
+          JSON.stringify({
+            userId: userData.username || formData.userId,
+            name: userData.full_name || userData.name || formData.userId,
+            loginTime: new Date().toISOString(),
+          })
+        );
+
+        navigate('/dash');
+      } else {
+        throw new Error(response.data?.message || '로그인에 실패했습니다.');
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || '로그인에 실패했습니다.';
+      alert(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+>>>>>>> origin/label-print
   };
 
   return (

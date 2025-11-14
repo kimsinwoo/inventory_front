@@ -1,7 +1,15 @@
 import axios from 'axios';
 
+<<<<<<< HEAD
 // PDF 서버 URL (환경 변수에서 가져오거나 기본값 사용)
 const PDF_SERVER_URL = import.meta.env.VITE_PDF_SERVER_URL || 'http://223.130.143.87:3001';
+=======
+// PDF 서버 URL (환경 변수에서 가져오기)
+// PDF 서버는 별도 포트를 사용할 수 있으므로 별도 환경 변수 지원
+// VITE_PDF_SERVER_URL이 없으면 VITE_API_URL에서 포트를 추출하거나 기본 포트 사용
+const PDF_SERVER_URL = import.meta.env.VITE_PDF_SERVER_URL || 
+  (import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '').replace(/:\d+$/, '') + ':3001' : null);
+>>>>>>> origin/label-print
 
 /**
  * Puppeteer를 사용하여 HTML을 PDF로 변환

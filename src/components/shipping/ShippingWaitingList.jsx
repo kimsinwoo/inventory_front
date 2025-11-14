@@ -114,7 +114,11 @@ const ShippingWaitingList = ({ waitingData, onAddShipping, onShip, onDelete }) =
                     {item.itemName}
                   </td>
                   <td className='px-4 py-4 text-sm text-gray-700'>
+<<<<<<< HEAD
                     {item.orderQuantity || item.expectedQuantity} {item.unit}
+=======
+                    {item.expectedQuantity}
+>>>>>>> origin/label-print
                   </td>
                   <td className='px-4 py-4'>
                     <input
@@ -141,6 +145,7 @@ const ShippingWaitingList = ({ waitingData, onAddShipping, onShip, onDelete }) =
                   <td className='px-4 py-4'>
                     <div className='flex items-center space-x-1 text-sm text-gray-700'>
                       <Calendar className='h-4 w-4 text-gray-500' />
+<<<<<<< HEAD
                       <span>{item.scheduledDate || item.expectedDate}</span>
                     </div>
                   </td>
@@ -166,6 +171,24 @@ const ShippingWaitingList = ({ waitingData, onAddShipping, onShip, onDelete }) =
                         <Trash2 className='h-4 w-4' />
                       </button>
                     </div>
+=======
+                      <span>{item.expectedDate}</span>
+                    </div>
+                  </td>
+                  <td className='flex w-full items-center gap-2 px-4 py-4'>
+                    <button
+                      onClick={() => handleShip(item, uniqueKey)}
+                      className='rounded-xl bg-[#674529] hover:bg-[#553821] px-4 py-2 text-sm font-medium text-white transition-colors'
+                    >
+                      출고
+                    </button>
+                    <button
+                      onClick={() => setIsModalOpen(true)}
+                      className='rounded-xl border border-[#674529] bg-white px-4 py-2 text-sm font-medium text-[#674529] transition-colors hover:bg-gray-50'
+                    >
+                      배송 정보
+                    </button>
+>>>>>>> origin/label-print
                   </td>
                 </tr>
               );
