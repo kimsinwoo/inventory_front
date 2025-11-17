@@ -77,11 +77,15 @@ apiClient.interceptors.response.use(
 // ============================================
 export const labelAPI = {
   getPrinters: async () => {
-    const response = await apiClient.get('/label/printers');
+    const response = await axios.get('http://localhost:4310/printers');
+    return response;
+  },
+  printSavedLabelPdf: async (data) => {
+    const response = await apiClient.post('/label/pdf', data);
     return response;
   },
   printLabel: async (data) => {
-    const response = await apiClient.post('/label/print', data);
+    const response = await axios.post('http://localhost:4310/print', data);
     return response;
   },
   saveTemplate: async (data) => {

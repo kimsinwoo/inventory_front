@@ -53,12 +53,8 @@ const SavedLabelList = () => {
           setPrinters(printerNames);
           
           if (printerNames.length > 0) {
-            const defaultPrinter = getDefaultPrinter();
-            const printerToSelect = defaultPrinter && printerNames.includes(defaultPrinter) 
-              ? defaultPrinter 
-              : printerNames[0];
-            setSelectedPrinter(printerToSelect);
-            console.log('✅ 선택된 프린터:', printerToSelect);
+            setSelectedPrinter(printerNames[0]);
+            console.log('✅ 선택된 프린터:', printerNames[0]);
           }
         }
       } catch (error) {

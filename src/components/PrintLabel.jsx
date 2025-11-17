@@ -1,479 +1,493 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { X, Printer, Package, Barcode } from 'lucide-react';
-import { labelAPI, itemsAPI } from '../api';
-import { getPrinters, getDefaultPrinter } from '../utils/printerUtils';
+// import React, { useEffect, useMemo, useState } from 'react';
+// import { X, Printer, Package, Barcode } from 'lucide-react';
+// import { labelAPI } from '../api';
 
-const SIZES = [
-  { value: 'large', label: 'Large (100mm)' },
-  { value: 'medium', label: 'Medium (80mm)' },
-  { value: 'small', label: 'Small (40mm)' },
-  { value: 'verysmall', label: 'VerySmall (26mm)' },
-];
+// const SIZES = [
+//   { value: 'large', label: 'Large (100mm)' },
+//   { value: 'medium', label: 'Medium (80mm)' },
+//   { value: 'small', label: 'Small (40mm)' },
+//   { value: 'verysmall', label: 'VerySmall (26mm)' },
+// ];
 
-const PrintLabel = ({ isOpen, onClose, onPrinted }) => {
-  // 품목 목록 상태
-  const [items, setItems] = useState([]);
-  const [loadingItems, setLoadingItems] = useState(false);
-  const [selectedItemId, setSelectedItemId] = useState('');
+// // 🔥 이 파일이 실제로 로드되는지 확인용
+// console.log('🔥 PrintLabel 컴포넌트 파일 로드됨');
 
-  // 라벨 데이터 상태
-  const [labelData, setLabelData] = useState({
-    templateType: 'large',
-    itemId: '',
-    manufactureDate: new Date().toISOString().split('T')[0],
-    expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 1년 후
-    productName: '',
-    storageCondition: '냉동',
-    registrationNumber: '',
-    categoryAndForm: '',
-    ingredients: '',
-    rawMaterials: '',
-    actualWeight: '',
-  });
+// // rawPdf → base64 문자열로 변환 (배열/CSV 문자열/이미 base64 모두 지원)
+// function normalizePdfBase64(rawPdf) {
+//   console.log('📦 [normalizePdfBase64] 입력 타입:', typeof rawPdf);
 
-  // 프린터 관련 상태
-  const [printers, setPrinters] = useState([]);
-  const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
-  const [selectedPrinter, setSelectedPrinter] = useState('');
-  const [printCount, setPrintCount] = useState(1);
-  const [isPrinting, setIsPrinting] = useState(false);
+//   if (rawPdf == null) {
+//     throw new Error('pdfBase64 데이터가 비어 있습니다.');
+//   }
 
-  // 품목 목록 자동 로드
-  useEffect(() => {
-    if (!isOpen) return;
-    
-    let isMounted = true;
-    
-    const fetchItems = async () => {
-      try {
-        setLoadingItems(true);
-        console.log('🔍 품목 목록 자동 로드 시작...');
-        
-        // Finished 카테고리 품목만 가져오기
-        const response = await itemsAPI.getItems({ category: 'Finished', page: 1, limit: 1000 });
-        
-        if (isMounted) {
-          const itemsList = Array.isArray(response.data) 
-            ? response.data 
-            : response.data?.data || response.data?.rows || [];
-          
-          // Finished 카테고리만 필터링
-          const finishedOnly = itemsList.filter(item => {
-            const category = item.category || item.Category || item.categoryName || '';
-            return category === 'Finished' || category === '완제품';
-          });
-          
-          setItems(finishedOnly);
-          console.log('✅ 가져온 품목 목록:', finishedOnly);
-          
-          // 첫 번째 품목 자동 선택
-          if (finishedOnly.length > 0) {
-            const firstItem = finishedOnly[0];
-            handleItemSelect(firstItem.id || firstItem.itemId);
-          }
-        }
-      } catch (error) {
-        if (isMounted) {
-          console.error('❌ 품목 목록 로드 실패:', error);
-          alert('품목 목록을 불러올 수 없습니다.');
-        }
-      } finally {
-        if (isMounted) {
-          setLoadingItems(false);
-        }
-      }
-    };
-    
-    fetchItems();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen]);
+//   const toBase64FromByteArray = (bytes) => {
+//     const uint8 = new Uint8Array(bytes);
+//     let binary = '';
+//     for (let i = 0; i < uint8.length; i += 1) {
+//       binary += String.fromCharCode(uint8[i]);
+//     }
+//     return window.btoa(binary);
+//   };
 
-  // 품목 선택 핸들러
-  const handleItemSelect = (itemId) => {
-    setSelectedItemId(itemId);
-    const selectedItem = items.find(item => 
-      (item.id === parseInt(itemId)) || (item.id === itemId) || (item.itemId === itemId)
-    );
-    
-    if (selectedItem) {
-      setLabelData(prev => ({
-        ...prev,
-        itemId: selectedItem.id || selectedItem.itemId || '',
-        productName: selectedItem.name || selectedItem.itemName || selectedItem.productName || '',
-        registrationNumber: selectedItem.code || selectedItem.registrationNumber || '',
-        storageCondition: selectedItem.storageCondition || prev.storageCondition || '냉동',
-      }));
-    }
-  };
+//   if (Array.isArray(rawPdf)) {
+//     console.log('📦 [normalizePdfBase64] 숫자 배열로 인식');
+//     const bytes = rawPdf.map((n) => Number(n));
+//     return toBase64FromByteArray(bytes);
+//   }
 
-  // 프린터 목록 로드
-  useEffect(() => {
-    if (!isOpen) return;
-    
-    let isMounted = true;
-    
-    const loadPrinters = async () => {
-      try {
-        setIsLoadingPrinters(true);
-        console.log('🔍 프린터 목록 자동 로드 시작...');
-        
-        const printerList = await getPrinters(() => labelAPI.getPrinters());
-        
-        if (isMounted) {
-          console.log('✅ 가져온 프린터 목록:', printerList);
-          
-          const printerNames = printerList.map(p => 
-            typeof p === 'string' ? p : (p?.name || p?.id || p?.printerName || String(p))
-          );
-          
-          setPrinters(printerNames);
-          
-          if (printerNames.length > 0) {
-            const defaultPrinter = getDefaultPrinter();
-            const printerToSelect = defaultPrinter && printerNames.includes(defaultPrinter) 
-              ? defaultPrinter 
-              : printerNames[0];
-            setSelectedPrinter(printerToSelect);
-            console.log('✅ 선택된 프린터:', printerToSelect);
-          }
-        }
-      } catch (error) {
-        if (isMounted) {
-          console.error('❌ 프린터 목록 로드 실패:', error);
-          setPrinters([]);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoadingPrinters(false);
-        }
-      }
-    };
-    
-    loadPrinters();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen]);
+//   if (typeof rawPdf === 'string') {
+//     const trimmed = rawPdf.trim();
+//     const looksLikeCsvNumbers = /^[0-9]+(,[0-9]+)*$/.test(trimmed);
 
-  // 선택된 품목 정보
-  const selectedItem = useMemo(() => {
-    return items.find(item => 
-      (item.id === parseInt(selectedItemId)) || (item.id === selectedItemId) || (item.itemId === selectedItemId)
-    );
-  }, [items, selectedItemId]);
+//     if (looksLikeCsvNumbers) {
+//       console.log('📦 [normalizePdfBase64] "37,80,68,..." 형태 CSV 숫자 문자열로 인식');
+//       const parts = trimmed.split(',');
+//       const bytes = parts.map((n) => Number(n));
+//       return toBase64FromByteArray(bytes);
+//     }
 
-  // 라벨 프린트
-  const handlePrint = async () => {
-    if (!selectedItemId) {
-      alert('품목을 선택해주세요.');
-      return;
-    }
-    if (!selectedPrinter) {
-      alert('프린터를 선택해주세요.');
-      return;
-    }
-    if (!printCount || printCount < 1) {
-      alert('인쇄 개수는 1개 이상이어야 합니다.');
-      return;
-    }
-    if (!labelData.manufactureDate) {
-      alert('제조일자를 입력해주세요.');
-      return;
-    }
-    if (!labelData.expiryDate) {
-      alert('유통기한을 입력해주세요.');
-      return;
-    }
+//     console.log('📦 [normalizePdfBase64] 이미 base64 문자열이라고 가정');
+//     return trimmed;
+//   }
 
-    try {
-      setIsPrinting(true);
-      
-      await labelAPI.printLabel({
-        templateType: labelData.templateType,
-        itemId: labelData.itemId,
-        manufactureDate: labelData.manufactureDate,
-        expiryDate: labelData.expiryDate,
-        printerName: selectedPrinter,
-        printCount: printCount,
-        productName: labelData.productName,
-        storageCondition: labelData.storageCondition,
-        registrationNumber: labelData.registrationNumber,
-        categoryAndForm: labelData.categoryAndForm,
-        ingredients: labelData.ingredients,
-        rawMaterials: labelData.rawMaterials,
-        actualWeight: labelData.actualWeight,
-      });
-      
-      alert(`${printCount}개 인쇄 요청이 완료되었습니다.`);
-      if (onPrinted) {
-        onPrinted({ 
-          itemId: labelData.itemId,
-          printerName: selectedPrinter, 
-          printCount, 
-          templateType: labelData.templateType 
-        });
-      }
-      onClose?.();
-    } catch (err) {
-      console.error('라벨 인쇄 실패:', err);
-      alert(`인쇄 실패: ${err.response?.data?.message || err.message || '알 수 없는 오류'}`);
-    } finally {
-      setIsPrinting(false);
-    }
-  };
+//   throw new Error('지원하지 않는 pdfBase64 포맷입니다.');
+// }
 
-  if (!isOpen) return null;
+// // 1) 4000 백엔드에서 pdfBase64 받아오기
+// async function fetchLabelPdfBase64({ templateId, labelType, printCount }) {
+//   console.log('▶ [PrintLabel] /label/pdf 요청 payload:', {
+//     templateId,
+//     labelType,
+//     printCount,
+//   });
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-4xl rounded-xl bg-white shadow-xl max-h-[90vh] overflow-y-auto">
-        {/* 헤더 */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 sticky top-0 bg-white z-10">
-          <div className="flex items-center space-x-2">
-            <Package className="h-5 w-5 text-[#674529]" />
-            <h2 className="text-lg font-semibold text-[#674529]">라벨 프린트</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+//   const pdfResponse = await labelAPI.printSavedLabelPdf({
+//     templateId,
+//     labelType,    // large / medium / small / verysmall
+//     printCount,
+//   });
 
-        {/* 본문 */}
-        <div className="px-6 py-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* 좌측: 입력 영역 */}
-            <div className="space-y-4">
-              {/* 품목 선택 */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">품목 선택</label>
-                <select
-                  value={selectedItemId}
-                  onChange={(e) => handleItemSelect(e.target.value)}
-                  disabled={loadingItems || items.length === 0}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loadingItems ? (
-                    <option>품목 로딩 중...</option>
-                  ) : items.length === 0 ? (
-                    <option>품목이 없습니다</option>
-                  ) : (
-                    items.map((item, idx) => (
-                      <option key={item.id || item.itemId || idx} value={item.id || item.itemId}>
-                        {item.name || item.itemName || item.productName || `품목 ${idx + 1}`}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
+//   console.log('✅ [PrintLabel] /label/pdf 응답:', pdfResponse);
 
-              {/* 라벨 크기 */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">라벨 크기</label>
-                <select
-                  value={labelData.templateType}
-                  onChange={(e) => setLabelData({ ...labelData, templateType: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors"
-                >
-                  {SIZES.map(s => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
-                  ))}
-                </select>
-              </div>
+//   const pdfResponseData = pdfResponse?.data;
 
-              {/* 제조일자 */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">제조일자</label>
-                <input
-                  type="date"
-                  value={labelData.manufactureDate}
-                  onChange={(e) => setLabelData({ ...labelData, manufactureDate: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors"
-                />
-              </div>
+//   // 백엔드 응답 구조 여러 경우 지원
+//   const rawPdf =
+//     pdfResponseData?.data?.pdfBase64 ??
+//     pdfResponseData?.pdfBase64 ??
+//     pdfResponseData?.pdf ??
+//     null;
 
-              {/* 유통기한 */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">유통기한</label>
-                <input
-                  type="date"
-                  value={labelData.expiryDate}
-                  onChange={(e) => setLabelData({ ...labelData, expiryDate: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors"
-                />
-              </div>
+//   console.log(
+//     '📦 [PrintLabel] rawPdf 타입:',
+//     typeof rawPdf,
+//     '값 일부:',
+//     rawPdf ? String(rawPdf).slice(0, 80) : null,
+//   );
 
-              {/* 제품명 */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">제품명</label>
-                <input
-                  type="text"
-                  value={labelData.productName}
-                  onChange={(e) => setLabelData({ ...labelData, productName: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors"
-                  placeholder="제품명"
-                />
-              </div>
+//   const pdfBase64 = normalizePdfBase64(rawPdf);
 
-              {/* 보관조건 */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">보관조건</label>
-                <select
-                  value={labelData.storageCondition}
-                  onChange={(e) => setLabelData({ ...labelData, storageCondition: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors"
-                >
-                  <option value="냉동">냉동</option>
-                  <option value="냉장">냉장</option>
-                  <option value="실온">실온</option>
-                </select>
-              </div>
+//   console.log('✅ [PrintLabel] 최종 pdfBase64 길이:', pdfBase64.length);
 
-              {/* 등록번호 */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">등록번호</label>
-                <input
-                  type="text"
-                  value={labelData.registrationNumber}
-                  onChange={(e) => setLabelData({ ...labelData, registrationNumber: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors"
-                  placeholder="등록번호"
-                />
-              </div>
+//   return pdfBase64;
+// }
 
-              {/* 카테고리 및 형태 */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">카테고리 및 형태</label>
-                <input
-                  type="text"
-                  value={labelData.categoryAndForm}
-                  onChange={(e) => setLabelData({ ...labelData, categoryAndForm: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors"
-                  placeholder="카테고리 및 형태"
-                />
-              </div>
+// // 2) 4310 프린터 에이전트로 전송
+// async function sendToLocalPrinter({ pdfBase64, printerName, printCount }) {
+//   const payload = {
+//     pdfBase64,
+//     printerName,
+//     printCount,
+//   };
 
-              {/* 원재료 */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">원재료</label>
-                <input
-                  type="text"
-                  value={labelData.ingredients}
-                  onChange={(e) => setLabelData({ ...labelData, ingredients: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors"
-                  placeholder="원재료"
-                />
-              </div>
+//   console.log('▶ [PrintLabel] /print payload:', {
+//     ...payload,
+//     pdfBase64: `${pdfBase64.slice(0, 30)}...`,
+//   });
 
-              {/* 원료 */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">원료</label>
-                <input
-                  type="text"
-                  value={labelData.rawMaterials}
-                  onChange={(e) => setLabelData({ ...labelData, rawMaterials: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors"
-                  placeholder="원료"
-                />
-              </div>
+//   const printResponse = await labelAPI.printLabel(payload);
+//   console.log('✅ [PrintLabel] /print 응답:', printResponse);
 
-              {/* 실제 중량 */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">실제 중량</label>
-                <input
-                  type="text"
-                  value={labelData.actualWeight}
-                  onChange={(e) => setLabelData({ ...labelData, actualWeight: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors"
-                  placeholder="실제 중량"
-                />
-              </div>
+//   const printData = printResponse?.data;
+//   const ok = typeof printData?.ok === 'boolean' ? printData.ok : true;
+//   const message =
+//     typeof printData?.message === 'string' && printData.message.length > 0
+//       ? printData.message
+//       : `${printCount}개 인쇄 요청이 완료되었습니다.`;
 
-              {/* 인쇄 개수 */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">인쇄 개수</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={printCount}
-                  onChange={(e) => setPrintCount(parseInt(e.target.value) || 1)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors"
-                  placeholder="인쇄할 개수"
-                />
-              </div>
+//   if (!ok) {
+//     throw new Error(message);
+//   }
 
-              {/* 프린터 선택 */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">프린터 선택</label>
-                <select
-                  value={selectedPrinter}
-                  onChange={(e) => setSelectedPrinter(e.target.value)}
-                  disabled={isLoadingPrinters || printers.length === 0}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-[#674529] focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoadingPrinters ? (
-                    <option>프린터 목록 로딩 중...</option>
-                  ) : printers.length === 0 ? (
-                    <option>사용 가능한 프린터가 없습니다</option>
-                  ) : (
-                    printers.map((p, idx) => (
-                      <option key={idx} value={p}>{p}</option>
-                    ))
-                  )}
-                </select>
-              </div>
-            </div>
+//   return message;
+// }
 
-            {/* 우측: 미리보기 정보 */}
-            <div className="rounded-xl border border-gray-200 p-4 bg-gray-50 sticky top-20">
-              <div className="text-sm text-gray-700 space-y-2">
-                <div className="font-semibold text-[#674529] mb-4">선택 정보</div>
-                <div className="space-y-2">
-                  <div><span className="font-medium">품목 ID:</span> {labelData.itemId || '-'}</div>
-                  <div><span className="font-medium">제품명:</span> {labelData.productName || '-'}</div>
-                  <div><span className="font-medium">라벨 크기:</span> {SIZES.find(s => s.value === labelData.templateType)?.label || '-'}</div>
-                  <div><span className="font-medium">제조일자:</span> {labelData.manufactureDate || '-'}</div>
-                  <div><span className="font-medium">유통기한:</span> {labelData.expiryDate || '-'}</div>
-                  <div><span className="font-medium">보관조건:</span> {labelData.storageCondition || '-'}</div>
-                  <div><span className="font-medium">등록번호:</span> {labelData.registrationNumber || '-'}</div>
-                  <div><span className="font-medium">인쇄 개수:</span> {printCount}</div>
-                  <div><span className="font-medium">프린터:</span> {selectedPrinter || '-'}</div>
-                </div>
-                <hr className="my-3" />
-                <div className="text-xs text-gray-500">
-                  * 품목을 선택하면 자동으로 제품명과 등록번호가 입력됩니다.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+// const PrintLabel = ({ isOpen, onClose, onPrinted }) => {
+//   console.log('🎯 PrintLabel 렌더링, isOpen =', isOpen);
 
-        {/* 푸터 */}
-        <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4 sticky bottom-0 bg-white">
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            취소
-          </button>
-          <button
-            onClick={handlePrint}
-            disabled={isPrinting || !selectedItemId || !selectedPrinter || !labelData.manufactureDate || !labelData.expiryDate}
-            className="inline-flex items-center rounded-xl bg-[#674529] px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#5a3d22] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Printer className="mr-2 h-4 w-4" />
-            {isPrinting ? '인쇄 중...' : '프린트하기'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+//   const [templates, setTemplates] = useState([]);
+//   const [loadingTemplates, setLoadingTemplates] = useState(false);
+//   const [selectedTemplateId, setSelectedTemplateId] = useState('');
 
-export default PrintLabel;
+//   const [printers, setPrinters] = useState([]);
+//   const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
+//   const [selectedPrinter, setSelectedPrinter] = useState('');
+
+//   const [size, setSize] = useState('large');
+//   const [printCount, setPrintCount] = useState(1);
+//   const [isPrinting, setIsPrinting] = useState(false);
+
+//   // 프린터 목록 로드 (모달 열릴 때)
+//   useEffect(() => {
+//     if (!isOpen) return;
+
+//     const fetchPrinters = async () => {
+//       try {
+//         setIsLoadingPrinters(true);
+//         console.log('▶ [PrintLabel] 프린터 목록 요청');
+//         const response = await labelAPI.getPrinters();
+//         console.log('✅ [PrintLabel] 프린터 목록 응답:', response);
+
+//         const list = Array.isArray(response.data)
+//           ? response.data
+//           : response.data?.data ?? response.data?.printers ?? [];
+
+//         setPrinters(list);
+
+//         if (list.length > 0) {
+//           const firstItem = list[0];
+//           const first =
+//             typeof firstItem === 'string'
+//               ? firstItem
+//               : firstItem?.name ?? firstItem?.id ?? '';
+//           setSelectedPrinter(first);
+//           console.log('✅ [PrintLabel] 선택된 기본 프린터:', first);
+//         }
+//       } catch (err) {
+//         console.error('프린터 목록 가져오기 실패:', err);
+//       } finally {
+//         setIsLoadingPrinters(false);
+//       }
+//     };
+
+//     fetchPrinters();
+//   }, [isOpen]);
+
+//   // 템플릿 목록 로드 (모달 열릴 때) - /label/templates
+//   useEffect(() => {
+//     if (!isOpen) return;
+
+//     const fetchTemplates = async () => {
+//       try {
+//         setLoadingTemplates(true);
+//         console.log('▶ [PrintLabel] 템플릿 목록 요청');
+//         const response = await labelAPI.getTemplates({ page: 1, limit: 200 });
+//         console.log('✅ [PrintLabel] 템플릿 목록 응답:', response);
+
+//         const resData = response.data;
+//         const rows = Array.isArray(resData)
+//           ? resData
+//           : Array.isArray(resData?.data)
+//           ? resData.data
+//           : Array.isArray(resData?.templates)
+//           ? resData.templates
+//           : [];
+
+//         setTemplates(rows);
+
+//         if (rows.length > 0) {
+//           const firstId =
+//             rows[0]?.id ??
+//             rows[0]?.templateId ??
+//             rows[0]?.labelId ??
+//             '';
+//           setSelectedTemplateId(firstId);
+//           console.log('✅ [PrintLabel] 기본 선택 템플릿 ID:', firstId);
+//         }
+//       } catch (err) {
+//         console.error('템플릿 목록 가져오기 실패:', err);
+//         setTemplates([]);
+//       } finally {
+//         setLoadingTemplates(false);
+//       }
+//     };
+
+//     fetchTemplates();
+//   }, [isOpen]);
+
+//   const selectedTemplate = useMemo(
+//     () =>
+//       templates.find(
+//         (t) =>
+//           (t.id ?? t.templateId ?? t.labelId) === selectedTemplateId,
+//       ),
+//     [templates, selectedTemplateId],
+//   );
+
+//   const handlePrint = async () => {
+//     if (!selectedTemplateId) {
+//       alert('라벨 템플릿을 선택해주세요.');
+//       return;
+//     }
+//     if (!selectedPrinter) {
+//       alert('프린터를 선택해주세요.');
+//       return;
+//     }
+//     if (!printCount || printCount < 1) {
+//       alert('인쇄 개수는 1개 이상이어야 합니다.');
+//       return;
+//     }
+
+//     try {
+//       setIsPrinting(true);
+
+//       // 1) 백엔드에서 PDF Base64 생성
+//       const pdfBase64 = await fetchLabelPdfBase64({
+//         templateId: selectedTemplateId,
+//         labelType: size,
+//         printCount,
+//       });
+
+//       console.log(pdfBase64)
+
+//       // 2) 로컬 프린터 에이전트로 전송
+//       // const message = await sendToLocalPrinter({
+//       //   pdfBase64,
+//       //   printerName: selectedPrinter,
+//       //   printCount,
+//       // });
+
+//       alert(message);
+
+//       if (onPrinted) {
+//         onPrinted({
+//           templateId: selectedTemplateId,
+//           printerName: selectedPrinter,
+//           printCount,
+//           size,
+//         });
+//       }
+//       if (onClose) {
+//         onClose();
+//       }
+//     } catch (err) {
+//       console.error('❌ [PrintLabel] 라벨 인쇄 실패:', err);
+
+//       const errorMessage =
+//         typeof err?.response?.data?.message === 'string'
+//           ? err.response.data.message
+//           : typeof err?.message === 'string'
+//           ? err.message
+//           : '알 수 없는 오류';
+
+//       alert(`인쇄 실패: ${errorMessage}`);
+//     } finally {
+//       setIsPrinting(false);
+//     }
+//   };
+
+//   if (!isOpen) return null;
+
+//   return (
+//     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+//       <div className="w-full max-w-3xl rounded-xl bg-white shadow-xl">
+//         {/* 헤더 */}
+//         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+//           <div className="flex items-center space-x-2">
+//             <Package className="h-5 w-5 text-[#674529]" />
+//             <h2 className="text-lg font-semibold text-[#674529]">
+//               라벨 프린트
+//             </h2>
+//           </div>
+//           <button
+//             onClick={onClose}
+//             className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+//           >
+//             <X className="h-5 w-5" />
+//           </button>
+//         </div>
+
+//         {/* 본문 */}
+//         <div className="px-6 py-5">
+//           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+//             {/* 좌측: 선택 영역 */}
+//             <div className="space-y-4">
+//               <div>
+//                 <label className="mb-2 block text-sm font-semibold text-gray-700">
+//                   저장된 라벨 템플릿 선택
+//                 </label>
+//                 <select
+//                   value={selectedTemplateId}
+//                   onChange={(e) => setSelectedTemplateId(e.target.value)}
+//                   disabled={loadingTemplates || templates.length === 0}
+//                   className="w-full rounded-xl border border-gray-300 px-4 py-2.5 transition-colors focus:border-[#674529] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+//                 >
+//                   {loadingTemplates ? (
+//                     <option>라벨 템플릿 로딩 중...</option>
+//                   ) : templates.length === 0 ? (
+//                     <option>저장된 템플릿이 없습니다</option>
+//                   ) : (
+//                     templates.map((t, idx) => {
+//                       const id =
+//                         t.id ??
+//                         t.templateId ??
+//                         t.labelId ??
+//                         `idx-${idx}`;
+//                       const name =
+//                         t.item_name ??
+//                         t.itemName ??
+//                         t.productName ??
+//                         '라벨 템플릿';
+//                       return (
+//                         <option key={id} value={id}>
+//                           {`${name} (#${id})`}
+//                         </option>
+//                       );
+//                     })
+//                   )}
+//                 </select>
+//               </div>
+
+//               <div className="grid grid-cols-2 gap-4">
+//                 <div>
+//                   <label className="mb-2 block text-sm font-semibold text-gray-700">
+//                     라벨 크기
+//                   </label>
+//                   <select
+//                     value={size}
+//                     onChange={(e) => setSize(e.target.value)}
+//                     className="w-full rounded-xl border border-gray-300 px-4 py-2.5 transition-colors focus:border-[#674529] focus:outline-none"
+//                   >
+//                     {SIZES.map((s) => (
+//                       <option key={s.value} value={s.value}>
+//                         {s.label}
+//                       </option>
+//                     ))}
+//                   </select>
+//                 </div>
+//                 <div>
+//                   <label className="mb-2 block text-sm font-semibold text-gray-700">
+//                     인쇄 개수
+//                   </label>
+//                   <input
+//                     type="number"
+//                     min="1"
+//                     value={printCount}
+//                     onChange={(e) => {
+//                       const next = Number.parseInt(e.target.value, 10);
+//                       setPrintCount(Number.isNaN(next) ? 1 : next);
+//                     }}
+//                     className="w-full rounded-xl border border-gray-300 px-4 py-2.5 transition-colors focus:border-[#674529] focus:outline-none"
+//                     placeholder="인쇄할 개수"
+//                   />
+//                 </div>
+//               </div>
+
+//               <div>
+//                 <label className="mb-2 block text-sm font-semibold text-gray-700">
+//                   프린터 선택
+//                 </label>
+//                 <select
+//                   value={selectedPrinter}
+//                   onChange={(e) => setSelectedPrinter(e.target.value)}
+//                   disabled={isLoadingPrinters || printers.length === 0}
+//                   className="w-full rounded-xl border border-gray-300 px-4 py-2.5 transition-colors focus:border-[#674529] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+//                 >
+//                   {isLoadingPrinters ? (
+//                     <option>프린터 목록 로딩 중...</option>
+//                   ) : printers.length === 0 ? (
+//                     <option>사용 가능한 프린터가 없습니다</option>
+//                   ) : (
+//                     printers.map((p, idx) => {
+//                       const name =
+//                         typeof p === 'string'
+//                           ? p
+//                           : p.name ?? p.id ?? `프린터 ${idx + 1}`;
+//                       const suffix =
+//                         typeof p === 'object' && p.driver
+//                           ? ` (${p.driver})`
+//                           : '';
+//                       return (
+//                         <option key={idx} value={name}>
+//                           {name}
+//                           {suffix}
+//                         </option>
+//                       );
+//                     })
+//                   )}
+//                 </select>
+//               </div>
+//             </div>
+
+//             {/* 우측: 미리보기 정보 */}
+//             <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+//               <div className="space-y-2 text-sm text-gray-700">
+//                 <div className="font-semibold text-[#674529]">
+//                   선택 정보
+//                 </div>
+//                 <div className="flex items-center gap-2">
+//                   <Barcode className="h-4 w-4 text-gray-500" />
+//                   <span>템플릿 ID: {selectedTemplateId || '-'}</span>
+//                 </div>
+//                 <div>
+//                   라벨 크기:{' '}
+//                   {SIZES.find((s) => s.value === size)?.label}
+//                 </div>
+//                 <div>인쇄 개수: {printCount}</div>
+//                 <div>프린터: {selectedPrinter || '-'}</div>
+//                 <hr className="my-3" />
+//                 <div className="text-xs text-gray-500">
+//                   * 저장된 라벨 템플릿 정보 기준으로 서버에서 PDF를 생성한 후
+//                   로컬 프린터 에이전트로 전송합니다.
+//                 </div>
+//                 {selectedTemplate && (
+//                   <div className="mt-2 space-y-1 text-xs text-gray-600">
+//                     <div>
+//                       품목명:{' '}
+//                       {selectedTemplate.item_name ??
+//                         selectedTemplate.itemName ??
+//                         selectedTemplate.productName ??
+//                         '-'}
+//                     </div>
+//                     <div>
+//                       보관조건:{' '}
+//                       {selectedTemplate.storage_condition ??
+//                         selectedTemplate.storageCondition ??
+//                         '-'}
+//                     </div>
+//                     <div>
+//                       등록번호:{' '}
+//                       {selectedTemplate.registration_number ??
+//                         selectedTemplate.registrationNumber ??
+//                         '-'}
+//                     </div>
+//                   </div>
+//                 )}
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+
+//         {/* 푸터 */}
+//         <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+//           <button
+//             onClick={onClose}
+//             className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+//           >
+//             취소
+//           </button>
+//           <button
+//             onClick={handlePrint}
+//             disabled={isPrinting || !selectedTemplateId || !selectedPrinter}
+//             className="inline-flex items-center rounded-xl bg-[#674529] px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#5a3d22] disabled:cursor-not-allowed disabled:opacity-50"
+//           >
+//             <Printer className="mr-2 h-4 w-4" />
+//             {isPrinting ? '인쇄 중...' : '프린트하기'}
+//           </button>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default PrintLabel;
